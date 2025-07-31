@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Palette, Save, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { applyColorSettings } from "@/lib/color-utils";
 import type { SystemSettings } from "@shared/schema";
 
 export default function SettingsSection() {
@@ -18,18 +19,18 @@ export default function SettingsSection() {
     gradientEnd: "#f06292"
   });
 
-  const { data: settings, isLoading } = useQuery({
+  const { data: settings, isLoading } = useQuery<SystemSettings[]>({
     queryKey: ["/api/settings"],
   });
 
   // Initialize color settings from database
   useEffect(() => {
-    if (settings && settings.length > 0) {
+    if (settings && Array.isArray(settings) && settings.length > 0) {
       setColorSettings({
-        primaryColor: settings.find(s => s.key === "app_primary_color")?.value || "#e91e63",
-        accentColor: settings.find(s => s.key === "app_accent_color")?.value || "#f06292",
-        gradientStart: settings.find(s => s.key === "app_gradient_start")?.value || "#e91e63",
-        gradientEnd: settings.find(s => s.key === "app_gradient_end")?.value || "#f06292"
+        primaryColor: settings.find((s: SystemSettings) => s.key === "app_primary_color")?.value || "#e91e63",
+        accentColor: settings.find((s: SystemSettings) => s.key === "app_accent_color")?.value || "#f06292",
+        gradientStart: settings.find((s: SystemSettings) => s.key === "app_gradient_start")?.value || "#e91e63",
+        gradientEnd: settings.find((s: SystemSettings) => s.key === "app_gradient_end")?.value || "#f06292"
       });
     }
   }, [settings]);
@@ -38,13 +39,26 @@ export default function SettingsSection() {
     mutationFn: (data: { key: string; value: string }[]) =>
       apiRequest("/api/settings/bulk", "POST", data),
     onSuccess: () => {
+      // Apply colors immediately
+      const mockSettings = [
+        { key: "app_primary_color", value: colorSettings.primaryColor },
+        { key: "app_accent_color", value: colorSettings.accentColor },
+        { key: "app_gradient_start", value: colorSettings.gradientStart },
+        { key: "app_gradient_end", value: colorSettings.gradientEnd }
+      ] as SystemSettings[];
+      
+      applyColorSettings(mockSettings);
+      
+      // Invalidate all settings queries to refresh data everywhere
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      
       toast({
         title: "Configurações salvas",
         description: "As cores foram atualizadas com sucesso!",
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Settings update error:", error);
       toast({
         title: "Erro",
         description: "Não foi possível salvar as configurações.",
