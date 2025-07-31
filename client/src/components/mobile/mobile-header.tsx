@@ -111,35 +111,30 @@ export default function MobileHeader() {
         </div>
 
         {/* Loyalty Program Card */}
-        <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center space-x-2">
-              <Star className="w-4 h-4 text-yellow-400 fill-current" />
-              <span className="font-semibold text-sm">Programa de Fidelidade</span>
+        <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-2">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center space-x-1">
+              <Star className="w-3 h-3 text-yellow-400 fill-current" />
+              <span className="font-semibold text-xs">Programa de Fidelidade</span>
             </div>
             <div className="text-right">
-              <div className="text-base font-bold">175</div>
+              <div className="text-sm font-bold">175</div>
               <div className="text-xs opacity-80">pontos</div>
             </div>
           </div>
           
           {/* Progress Bar */}
-          <div className="mb-2">
-            <div className="w-full bg-white/20 rounded-full h-1.5">
+          <div className="mb-1">
+            <div className="w-full bg-white/20 rounded-full h-1">
               <div 
-                className="bg-yellow-400 h-1.5 rounded-full transition-all duration-500"
+                className="bg-yellow-400 h-1 rounded-full transition-all duration-500"
                 style={{ width: '70%' }}
               ></div>
             </div>
           </div>
           
-          <div className="flex items-center justify-between text-xs">
+          <div className="text-xs">
             <span className="opacity-90">Faltam apenas 25 pontos para sua próxima recompensa</span>
-            <Badge 
-              className="bg-white/20 text-white text-xs px-1.5 py-0.5"
-            >
-              Meta: 200
-            </Badge>
           </div>
         </div>
       </div>
