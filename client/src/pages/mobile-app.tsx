@@ -58,7 +58,9 @@ export default function MobileApp() {
       <div className="mobile-container">
         <MobileHeader />
         <MobileNavigation activeSection={activeSection} onSectionChange={setActiveSection} />
-        {renderSection()}
+        <div className="bg-white dark:bg-gray-900 min-h-screen">
+          {renderSection()}
+        </div>
       </div>
     </div>
   );

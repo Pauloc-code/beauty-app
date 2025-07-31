@@ -105,11 +105,7 @@ export default function HomeSection() {
         <p className="text-gray-600 dark:text-gray-400">Que tal cuidar das suas unhas hoje?</p>
       </div>
 
-      {/* Theme Selector */}
-      <div>
-        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-3">Configurações</h3>
-        <ThemeSelector />
-      </div>
+
 
       {/* Next Appointment Card */}
       <div>

@@ -13,7 +13,7 @@ export default function MobileNavigation({ activeSection, onSectionChange }: Mob
   ];
 
   return (
-    <div className="bg-white border-b border-gray-100 sticky top-0 z-40">
+    <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 sticky top-0 z-40">
       <div className="grid grid-cols-5 gap-1 p-2">
         {sections.map((section) => (
           <button
@@ -22,7 +22,7 @@ export default function MobileNavigation({ activeSection, onSectionChange }: Mob
             className={`relative flex flex-col items-center p-3 rounded-xl transition-all duration-200 ${
               activeSection === section.id
                 ? "text-white shadow-lg transform scale-105"
-                : "text-gray-600 hover:bg-gray-50 active:scale-95"
+                : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 active:scale-95"
             }`}
             style={{
               backgroundColor: activeSection === section.id ? 'var(--primary-color)' : 'transparent',
