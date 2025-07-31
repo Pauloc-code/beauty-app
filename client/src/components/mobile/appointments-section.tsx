@@ -444,14 +444,7 @@ export default function AppointmentsSection() {
         )}
       </div>
 
-      {/* Botão flutuante quando há agendamento selecionado */}
-      {selectedAppointment && (
-        <div className="fixed bottom-4 left-4 right-4 z-50">
-          <Button className="w-full bg-primary text-white py-4 rounded-2xl font-semibold text-lg shadow-2xl hover:bg-primary/90 transform transition-all duration-300 hover:scale-[1.02]">
-            Gerenciar Agendamento
-          </Button>
-        </div>
-      )}
+      
     </div>
   );
 }
