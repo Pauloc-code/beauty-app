@@ -3,6 +3,25 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertClientSchema, insertServiceSchema, insertAppointmentSchema, insertGalleryImageSchema, insertTransactionSchema } from "@shared/schema";
 import { z } from "zod";
+import multer from "multer";
+import sharp from "sharp";
+import { randomUUID } from "crypto";
+import { ObjectStorageService } from "./objectStorage";
+
+// Configuração do multer para upload em memória
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Apenas arquivos de imagem são permitidos'), false);
+    }
+  }
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Client routes
@@ -226,6 +245,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Upload de imagem para galeria
+  app.post("/api/gallery/upload", upload.single('image'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhuma imagem foi enviada" });
+      }
+
+      const { title, category, description } = req.body;
+      
+      if (!title || !category) {
+        return res.status(400).json({ message: "Título e categoria são obrigatórios" });
+      }
+
+      // Gerar ID único para a imagem
+      const imageId = randomUUID();
+      const filename = `gallery/${category}/${imageId}.jpg`;
+
+      // Processar imagem com Sharp para otimização
+      const processedBuffer = await sharp(req.file.buffer)
+        .resize(800, 600, { 
+          fit: 'inside', 
+          withoutEnlargement: true 
+        })
+        .jpeg({ 
+          quality: 85,
+          progressive: true 
+        })
+        .toBuffer();
+
+      // Obter configurações do object storage
+      const objectStorageService = new ObjectStorageService();
+      const publicSearchPaths = objectStorageService.getPublicObjectSearchPaths();
+      
+      if (publicSearchPaths.length === 0) {
+        throw new Error('Object storage não configurado');
+      }
+
+      // Upload para object storage
+      const basePath = publicSearchPaths[0];
+      const fullPath = `${basePath}/${filename}`;
+      
+      const { bucketName, objectName } = parseObjectPath(fullPath);
+      
+      // Import client directly for upload
+      const { objectStorageClient } = await import('./objectStorage');
+      const bucket = objectStorageClient.bucket(bucketName);
+      
+      if (!bucket) {
+        throw new Error('Falha ao acessar bucket de storage');
+      }
+
+      const file = bucket.file(objectName);
+      
+      await file.save(processedBuffer, {
+        metadata: {
+          contentType: 'image/jpeg',
+          cacheControl: 'public, max-age=31536000',
+        },
+      });
+
+      // Salvar informações no banco de dados
+      const imageUrl = `/public-objects/${filename}`;
+      const imageData = {
+        url: imageUrl,
+        title,
+        description: description || null,
+        category
+      };
+
+      const galleryImage = await storage.createGalleryImage(imageData);
+      
+      res.status(201).json({
+        ...galleryImage,
+        message: "Imagem enviada com sucesso"
+      });
+
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      res.status(500).json({ message: "Falha ao enviar imagem" });
+    }
+  });
+
   app.post("/api/gallery", async (req, res) => {
     try {
       const imageData = insertGalleryImageSchema.parse(req.body);
@@ -245,6 +346,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Failed to delete gallery image" });
+    }
+  });
+
+  // Servir arquivos públicos do object storage
+  app.get("/public-objects/:filePath(*)", async (req, res) => {
+    try {
+      const filePath = req.params.filePath;
+      const objectStorageService = new ObjectStorageService();
+      const file = await objectStorageService.searchPublicObject(filePath);
+      
+      if (!file) {
+        return res.status(404).json({ error: "Arquivo não encontrado" });
+      }
+      
+      await objectStorageService.downloadObject(file, res);
+    } catch (error) {
+      console.error("Error serving public object:", error);
+      return res.status(500).json({ error: "Erro interno do servidor" });
     }
   });
 
@@ -314,4 +433,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
   return httpServer;
+}
+
+// Função auxiliar para parsing de path do object storage
+function parseObjectPath(path: string): {
+  bucketName: string;
+  objectName: string;
+} {
+  if (!path.startsWith("/")) {
+    path = `/${path}`;
+  }
+  const pathParts = path.split("/");
+  if (pathParts.length < 3) {
+    throw new Error("Invalid path: must contain at least a bucket name");
+  }
+
+  const bucketName = pathParts[1];
+  const objectName = pathParts.slice(2).join("/");
+
+  return {
+    bucketName,
+    objectName,
+  };
 }

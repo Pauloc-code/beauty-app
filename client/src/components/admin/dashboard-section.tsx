@@ -58,14 +58,12 @@ export default function DashboardSection() {
     resolver: zodResolver(z.object({
       title: z.string().min(1, "Título é obrigatório"),
       category: z.string().min(1, "Categoria é obrigatória"),
-      description: z.string().optional(),
-      url: z.string().min(1, "URL da imagem é obrigatória")
+      description: z.string().optional()
     })),
     defaultValues: {
       title: "",
       category: "",
-      description: "",
-      url: ""
+      description: ""
     }
   });
 
@@ -134,27 +132,36 @@ export default function DashboardSection() {
     }
   });
 
-  const createGalleryImageMutation = useMutation({
-    mutationFn: async (data: any) => {
-      console.log("Creating gallery image with data:", data);
-      const response = await apiRequest("POST", "/api/gallery", data);
+  const uploadGalleryImageMutation = useMutation({
+    mutationFn: async (data: { formData: FormData }) => {
+      console.log("Uploading gallery image");
+      const response = await fetch("/api/gallery/upload", {
+        method: "POST",
+        body: data.formData,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Erro ao enviar imagem");
+      }
+      
       return response.json();
     },
     onSuccess: (data) => {
-      console.log("Gallery image created successfully:", data);
+      console.log("Gallery image uploaded successfully:", data);
       toast({
         title: "Sucesso",
-        description: "Foto adicionada à galeria com sucesso",
+        description: "Foto enviada e adicionada à galeria com sucesso",
       });
       galleryForm.reset();
       setGalleryOpen(false);
       queryClient.invalidateQueries({ queryKey: ["/api/gallery"] });
     },
     onError: (error) => {
-      console.error("Error creating gallery image:", error);
+      console.error("Error uploading gallery image:", error);
       toast({
         title: "Erro",
-        description: error.message || "Erro ao adicionar foto à galeria",
+        description: error.message || "Erro ao enviar foto",
         variant: "destructive"
       });
     }
@@ -740,7 +747,30 @@ export default function DashboardSection() {
             <form onSubmit={galleryForm.handleSubmit(
               (data) => {
                 console.log("Submitting gallery form with data:", data);
-                createGalleryImageMutation.mutate(data);
+                
+                // Obter o arquivo do input
+                const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+                const file = fileInput?.files?.[0];
+                
+                if (!file) {
+                  toast({
+                    title: "Erro",
+                    description: "Selecione uma imagem",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+                
+                // Criar FormData para upload
+                const formData = new FormData();
+                formData.append('image', file);
+                formData.append('title', data.title);
+                formData.append('category', data.category);
+                if (data.description) {
+                  formData.append('description', data.description);
+                }
+                
+                uploadGalleryImageMutation.mutate({ formData });
               },
               (errors) => {
                 console.log("Gallery form validation errors:", errors);
@@ -799,22 +829,49 @@ export default function DashboardSection() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={galleryForm.control}
-                name="url"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>URL da Imagem</FormLabel>
-                    <FormControl>
-                      <Input placeholder="https://exemplo.com/imagem.jpg" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                    <p className="text-xs text-gray-500">
-                      Cole aqui o link da imagem hospedada online
-                    </p>
-                  </FormItem>
-                )}
-              />
+              <div>
+                <label className="text-sm font-medium text-gray-700">Arquivo de Imagem</label>
+                <div className="mt-1 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                  <Camera className="mx-auto h-8 w-8 text-gray-400" />
+                  <p className="mt-2 text-sm text-gray-600">
+                    Selecione uma imagem do seu dispositivo
+                  </p>
+                  <Input 
+                    type="file" 
+                    accept="image/*" 
+                    className="mt-2"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        // Validar tipo de arquivo
+                        if (!file.type.startsWith('image/')) {
+                          toast({
+                            title: "Erro",
+                            description: "Apenas arquivos de imagem são permitidos",
+                            variant: "destructive"
+                          });
+                          e.target.value = '';
+                          return;
+                        }
+                        
+                        // Validar tamanho (10MB max)
+                        if (file.size > 10 * 1024 * 1024) {
+                          toast({
+                            title: "Erro", 
+                            description: "A imagem deve ter no máximo 10MB",
+                            variant: "destructive"
+                          });
+                          e.target.value = '';
+                          return;
+                        }
+                      }
+                    }}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Máximo 10MB. Formatos: JPG, PNG, WEBP
+                  </p>
+                </div>
+              </div>
               <div className="flex gap-3 pt-4">
                 <Button 
                   type="button" 
@@ -827,9 +884,9 @@ export default function DashboardSection() {
                 <Button 
                   type="submit" 
                   className="flex-1"
-                  disabled={createGalleryImageMutation.isPending}
+                  disabled={uploadGalleryImageMutation.isPending}
                 >
-                  {createGalleryImageMutation.isPending ? "Adicionando..." : "Adicionar à Galeria"}
+                  {uploadGalleryImageMutation.isPending ? "Enviando..." : "Enviar para Galeria"}
                 </Button>
               </div>
             </form>
