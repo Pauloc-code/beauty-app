@@ -144,11 +144,17 @@ export default function HomeSection() {
             </div>
             
             <div className="flex items-center justify-between">
-              <div className="flex items-center text-gray-600 text-sm">
-                <MapPin className="w-4 h-4 mr-1" />
-                <span>Rua das Flores, 123</span>
+              <div className="flex items-center text-amber-600 text-sm">
+                <Star className="w-4 h-4 mr-1 fill-current" />
+                <span>+{nextAppointment.service.loyaltyPoints || 15} pontos fidelidade</span>
               </div>
-              <Button className="bg-primary text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-primary/90 transform transition-all duration-200 hover:scale-105">
+              <Button 
+                className="bg-primary text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-primary/90 transform transition-all duration-200 hover:scale-105"
+                onClick={() => {
+                  // Aqui você pode adicionar a lógica para mostrar detalhes do agendamento
+                  console.log('Mostrar detalhes do agendamento:', nextAppointment);
+                }}
+              >
                 Ver Detalhes
               </Button>
             </div>
