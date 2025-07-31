@@ -6,6 +6,7 @@ import MobileHeader from "@/components/mobile/mobile-header";
 import MobileNavigation from "@/components/mobile/mobile-navigation";
 import HomeSection from "@/components/mobile/home-section";
 import ServicesSection from "@/components/mobile/services-section";
+import LoyaltySection from "@/components/mobile/loyalty-section";
 import PortfolioSection from "@/components/mobile/portfolio-section";
 import AppointmentsSection from "@/components/mobile/appointments-section";
 
@@ -22,6 +23,8 @@ export default function MobileApp() {
         return <HomeSection />;
       case "services":
         return <ServicesSection />;
+      case "loyalty":
+        return <LoyaltySection />;
       case "portfolio":
         return <PortfolioSection />;
       case "appointments":

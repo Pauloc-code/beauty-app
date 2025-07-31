@@ -7,13 +7,14 @@ export default function MobileNavigation({ activeSection, onSectionChange }: Mob
   const sections = [
     { id: "home", label: "Início", icon: "🏠" },
     { id: "services", label: "Serviços", icon: "💅" },
+    { id: "loyalty", label: "Fidelidade", icon: "🎁" },
     { id: "portfolio", label: "Portfólio", icon: "📸" },
     { id: "appointments", label: "Agenda", icon: "📅" },
   ];
 
   return (
     <div className="bg-white border-b border-gray-100 sticky top-0 z-40">
-      <div className="grid grid-cols-4 gap-1 p-2">
+      <div className="grid grid-cols-5 gap-1 p-2">
         {sections.map((section) => (
           <button
             key={section.id}
