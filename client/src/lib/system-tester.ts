@@ -129,7 +129,8 @@ export class SystemTester {
       
       // Testar sincronização de agendamentos
       const allAppointments = await apiRequest("GET", "/api/appointments");
-      const todayAppointments = await apiRequest("GET", "/api/appointments", { date: new Date().toISOString().split('T')[0] });
+      const todayDate = new Date().toISOString().split('T')[0];
+      const todayAppointments = await apiRequest("GET", `/api/appointments?date=${todayDate}`);
       
       // Testar sincronização de estatísticas
       const stats = await apiRequest("GET", "/api/stats/today");

@@ -7,6 +7,10 @@ export class TestDataGenerator {
   static async createTestClients() {
     DebugLogger.log("TestData", "Creating test clients");
     
+    // Verificar clientes existentes primeiro
+    const existingClients = await apiRequest("GET", "/api/clients");
+    const existingCpfs = new Set(existingClients.map((client: any) => client.cpf));
+    
     const testClients = [
       {
         name: "Maria Silva Santos",
@@ -30,8 +34,13 @@ export class TestDataGenerator {
 
     for (const client of testClients) {
       try {
+        if (existingCpfs.has(client.cpf)) {
+          DebugLogger.log("TestData", "Client already exists, skipping", { name: client.name, cpf: client.cpf });
+          continue;
+        }
+        
         const result = await apiRequest("POST", "/api/clients", client);
-        DebugLogger.success("TestData", "Created test client", { name: client.name, id: result.id });
+        DebugLogger.success("TestData", "✅ Created test client", { name: client.name, id: result.id });
       } catch (error) {
         DebugLogger.error("TestData", "Failed to create test client", { client: client.name, error });
       }

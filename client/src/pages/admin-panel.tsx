@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { DebugLogger } from "@/lib/debug-logger";
 import { TestDataGenerator } from "@/lib/test-data-generator";
-import { SystemTester } from "@/lib/system-tester";
+import { QuickTester } from "@/lib/quick-tester";
 import AdminHeader from "@/components/admin/admin-header";
 import AdminNavigation from "@/components/admin/admin-navigation";
 import DashboardSection from "@/components/admin/dashboard-section";
@@ -33,14 +33,14 @@ export default function AdminPanel() {
     }
   };
 
-  const handleRunSystemTests = async () => {
-    DebugLogger.log("AdminPanel", "Starting comprehensive system tests");
+  const handleRunQuickTests = async () => {
+    DebugLogger.log("AdminPanel", "Starting quick system validation");
     setIsRunningTests(true);
     try {
-      await SystemTester.runFullSystemTest();
-      DebugLogger.success("AdminPanel", "All system tests completed successfully");
+      await QuickTester.runQuickTests();
+      DebugLogger.success("AdminPanel", "Quick tests completed successfully");
     } catch (error) {
-      DebugLogger.error("AdminPanel", "System tests failed", error);
+      DebugLogger.error("AdminPanel", "Quick tests failed", error);
     } finally {
       setIsRunningTests(false);
     }
@@ -96,10 +96,10 @@ export default function AdminPanel() {
               variant="outline"
               size="sm"
               className="py-2 px-4 text-xs"
-              onClick={handleRunSystemTests}
+              onClick={handleRunQuickTests}
               disabled={isRunningTests}
             >
-              {isRunningTests ? "Testando..." : "🔬 Testar Sistema"}
+              {isRunningTests ? "Testando..." : "🔍 Teste Rápido"}
             </Button>
           </div>
         </div>

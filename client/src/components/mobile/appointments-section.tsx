@@ -29,7 +29,8 @@ export default function AppointmentsSection() {
   const clientId = "mock-client-id";
   
   const { data: appointments, isLoading } = useQuery({
-    queryKey: ["/api/appointments", { clientId }],
+    queryKey: ["/api/appointments", clientId],
+    queryFn: () => apiRequest("GET", `/api/appointments?clientId=${clientId}`),
     refetchInterval: 30000, // Atualiza a cada 30 segundos
     onSuccess: (data) => {
       DebugLogger.success("Appointments", "Loaded client appointments", { count: data?.length || 0, clientId });
