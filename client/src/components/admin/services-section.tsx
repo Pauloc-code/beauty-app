@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { DebugLogger } from "@/lib/debug-logger";
 import type { InsertService, Service } from "@shared/schema";
 
 export default function ServicesSection() {
@@ -27,11 +28,21 @@ export default function ServicesSection() {
 
   const { data: services, isLoading } = useQuery({
     queryKey: ["/api/services"],
+    onSuccess: (data) => {
+      DebugLogger.success("Services", "Loaded services", { count: data?.length || 0 });
+    },
+    onError: (error) => {
+      DebugLogger.error("Services", "Failed to load services", error);
+    }
   });
 
   const createServiceMutation = useMutation({
-    mutationFn: async (service: InsertService) => await apiRequest("POST", "/api/services", service),
-    onSuccess: () => {
+    mutationFn: async (service: InsertService) => {
+      DebugLogger.log("Services", "Creating service", service);
+      return await apiRequest("POST", "/api/services", service);
+    },
+    onSuccess: (data) => {
+      DebugLogger.success("Services", "Service created successfully", data);
       queryClient.invalidateQueries({ queryKey: ["/api/services"] });
       setIsNewServiceOpen(false);
       resetForm();
@@ -40,7 +51,8 @@ export default function ServicesSection() {
         description: "Serviço foi criado com sucesso.",
       });
     },
-    onError: () => {
+    onError: (error) => {
+      DebugLogger.error("Services", "Failed to create service", error);
       toast({
         title: "Erro",
         description: "Não foi possível criar o serviço.",
@@ -50,9 +62,12 @@ export default function ServicesSection() {
   });
 
   const updateServiceMutation = useMutation({
-    mutationFn: async ({ id, service }: { id: string, service: Partial<InsertService> }) =>
-      await apiRequest("PATCH", `/api/services/${id}`, service),
-    onSuccess: () => {
+    mutationFn: async ({ id, service }: { id: string, service: Partial<InsertService> }) => {
+      DebugLogger.log("Services", "Updating service", { id, service });
+      return await apiRequest("PATCH", `/api/services/${id}`, service);
+    },
+    onSuccess: (data) => {
+      DebugLogger.success("Services", "Service updated successfully", data);
       queryClient.invalidateQueries({ queryKey: ["/api/services"] });
       setEditingService(null);
       resetForm();
@@ -61,7 +76,8 @@ export default function ServicesSection() {
         description: "Serviço foi atualizado com sucesso.",
       });
     },
-    onError: () => {
+    onError: (error) => {
+      DebugLogger.error("Services", "Failed to update service", error);
       toast({
         title: "Erro",
         description: "Não foi possível atualizar o serviço.",

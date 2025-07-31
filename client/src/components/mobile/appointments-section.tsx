@@ -9,6 +9,7 @@ import { format, addHours, isAfter } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { DebugLogger } from "@/lib/debug-logger";
 import type { AppointmentWithDetails } from "@shared/schema";
 
 export default function AppointmentsSection() {
@@ -30,6 +31,12 @@ export default function AppointmentsSection() {
   const { data: appointments, isLoading } = useQuery({
     queryKey: ["/api/appointments", { clientId }],
     refetchInterval: 30000, // Atualiza a cada 30 segundos
+    onSuccess: (data) => {
+      DebugLogger.success("Appointments", "Loaded client appointments", { count: data?.length || 0, clientId });
+    },
+    onError: (error) => {
+      DebugLogger.error("Appointments", "Failed to load appointments", error);
+    }
   });
 
   // Mutação para reagendar

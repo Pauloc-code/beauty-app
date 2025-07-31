@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { DebugLogger } from "@/lib/debug-logger";
+import { TestDataGenerator } from "@/lib/test-data-generator";
 import AdminHeader from "@/components/admin/admin-header";
 import AdminNavigation from "@/components/admin/admin-navigation";
 import DashboardSection from "@/components/admin/dashboard-section";
@@ -14,6 +16,20 @@ import SettingsSection from "@/components/admin/settings-section";
 export default function AdminPanel() {
   const [, setLocation] = useLocation();
   const [activeSection, setActiveSection] = useState("dashboard");
+  const [isGeneratingTestData, setIsGeneratingTestData] = useState(false);
+
+  const handleGenerateTestData = async () => {
+    DebugLogger.log("AdminPanel", "Starting test data generation");
+    setIsGeneratingTestData(true);
+    try {
+      await TestDataGenerator.generateAllTestData();
+      DebugLogger.success("AdminPanel", "Test data generation completed");
+    } catch (error) {
+      DebugLogger.error("AdminPanel", "Test data generation failed", error);
+    } finally {
+      setIsGeneratingTestData(false);
+    }
+  };
 
   const renderSection = () => {
     switch (activeSection) {
@@ -52,6 +68,15 @@ export default function AdminPanel() {
             <button className="py-4 px-6 text-sm font-medium border-b-2 border-primary text-primary">
               <i className="fas fa-desktop mr-2"></i>Painel Administrativo
             </button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="py-2 px-4 text-xs"
+              onClick={handleGenerateTestData}
+              disabled={isGeneratingTestData}
+            >
+              {isGeneratingTestData ? "Gerando..." : "🧪 Dados de Teste"}
+            </Button>
           </div>
         </div>
       </div>
