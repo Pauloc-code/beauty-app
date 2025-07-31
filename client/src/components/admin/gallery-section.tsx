@@ -1,16 +1,74 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, Eye, Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Plus, Eye, Trash2, Camera } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useState } from "react";
 
 export default function GallerySection() {
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Gallery form
+  const galleryForm = useForm({
+    resolver: zodResolver(z.object({
+      title: z.string().min(1, "Título é obrigatório"),
+      category: z.string().min(1, "Categoria é obrigatória"),
+      description: z.string().optional()
+    })),
+    defaultValues: {
+      title: "",
+      category: "",
+      description: ""
+    }
+  });
+
   const { data: galleryImages, isLoading } = useQuery({
     queryKey: ["/api/gallery"],
+  });
+
+  const uploadGalleryImageMutation = useMutation({
+    mutationFn: async (data: { formData: FormData }) => {
+      console.log("Uploading gallery image");
+      const response = await fetch("/api/gallery/upload", {
+        method: "POST",
+        body: data.formData,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Erro ao enviar imagem");
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      console.log("Gallery image uploaded successfully:", data);
+      toast({
+        title: "Sucesso",
+        description: "Foto enviada e adicionada à galeria com sucesso",
+      });
+      galleryForm.reset();
+      setGalleryOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/gallery"] });
+    },
+    onError: (error) => {
+      console.error("Error uploading gallery image:", error);
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao enviar foto",
+        variant: "destructive"
+      });
+    }
   });
 
   const deleteImageMutation = useMutation({
@@ -78,10 +136,160 @@ export default function GallerySection() {
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900">Gestão da Galeria</h2>
-            <Button className="bg-primary text-white hover:bg-primary/90">
-              <Plus className="w-4 h-4 mr-2" />
-              Upload Fotos
-            </Button>
+            <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-primary text-white hover:bg-primary/90">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Upload Fotos
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Adicionar Foto à Galeria</DialogTitle>
+                </DialogHeader>
+                <Form {...galleryForm}>
+                  <form onSubmit={galleryForm.handleSubmit(
+                    (data) => {
+                      // Obter o arquivo do input
+                      const fileInput = document.querySelector('#gallery-file-input') as HTMLInputElement;
+                      const file = fileInput?.files?.[0];
+                      
+                      if (!file) {
+                        toast({
+                          title: "Erro",
+                          description: "Selecione uma imagem",
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+                      
+                      // Criar FormData para upload
+                      const formData = new FormData();
+                      formData.append('image', file);
+                      formData.append('title', data.title);
+                      formData.append('category', data.category);
+                      if (data.description) {
+                        formData.append('description', data.description);
+                      }
+                      
+                      uploadGalleryImageMutation.mutate({ formData });
+                    }
+                  )} className="space-y-4">
+                    <FormField
+                      control={galleryForm.control}
+                      name="title"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Título da Foto</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Ex: Nail art floral" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={galleryForm.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Categoria</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione a categoria" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="nail-art">Nail Art</SelectItem>
+                              <SelectItem value="manicure">Manicure</SelectItem>
+                              <SelectItem value="pedicure">Pedicure</SelectItem>
+                              <SelectItem value="alongamento">Alongamento</SelectItem>
+                              <SelectItem value="decoracao">Decoração</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={galleryForm.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Descrição (Opcional)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Descrição da foto..." {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Arquivo de Imagem</label>
+                      <div className="mt-1 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                        <Camera className="mx-auto h-8 w-8 text-gray-400" />
+                        <p className="mt-2 text-sm text-gray-600">
+                          Selecione uma imagem do seu dispositivo
+                        </p>
+                        <Input 
+                          id="gallery-file-input"
+                          type="file" 
+                          accept="image/*" 
+                          className="mt-2"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              // Validar tipo de arquivo
+                              if (!file.type.startsWith('image/')) {
+                                toast({
+                                  title: "Erro",
+                                  description: "Apenas arquivos de imagem são permitidos",
+                                  variant: "destructive"
+                                });
+                                e.target.value = '';
+                                return;
+                              }
+                              
+                              // Validar tamanho (10MB max)
+                              if (file.size > 10 * 1024 * 1024) {
+                                toast({
+                                  title: "Erro", 
+                                  description: "A imagem deve ter no máximo 10MB",
+                                  variant: "destructive"
+                                });
+                                e.target.value = '';
+                                return;
+                              }
+                            }
+                          }}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Máximo 10MB. Formatos: JPG, PNG, WEBP
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-3 pt-4">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => setGalleryOpen(false)}
+                        className="flex-1"
+                      >
+                        Cancelar
+                      </Button>
+                      <Button 
+                        type="submit" 
+                        className="flex-1"
+                        disabled={uploadGalleryImageMutation.isPending}
+                      >
+                        {uploadGalleryImageMutation.isPending ? "Enviando..." : "Enviar para Galeria"}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
         
@@ -125,7 +333,10 @@ export default function GallerySection() {
               ))}
               
               {/* Upload placeholder */}
-              <button className="border-2 border-dashed border-gray-300 rounded-lg h-40 flex items-center justify-center cursor-pointer hover:border-primary hover:bg-primary hover:bg-opacity-5 transition-colors group">
+              <button 
+                onClick={() => setGalleryOpen(true)}
+                className="border-2 border-dashed border-gray-300 rounded-lg h-40 flex items-center justify-center cursor-pointer hover:border-primary hover:bg-primary hover:bg-opacity-5 transition-colors group"
+              >
                 <div className="text-center">
                   <Plus className="w-8 h-8 text-gray-400 group-hover:text-primary mx-auto mb-2 transition-colors" />
                   <p className="text-gray-500 group-hover:text-primary text-sm transition-colors">
@@ -139,7 +350,10 @@ export default function GallerySection() {
           {(!galleryImages || galleryImages.length === 0) && !isLoading && (
             <div className="text-center py-8">
               <p className="text-gray-500 mb-4">Nenhuma imagem na galeria</p>
-              <Button className="bg-primary text-white">
+              <Button 
+                onClick={() => setGalleryOpen(true)}
+                className="bg-primary text-white"
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Adicionar primeira foto
               </Button>
