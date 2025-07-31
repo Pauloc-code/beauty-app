@@ -3,8 +3,9 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Calendar, Clock, MapPin, Phone, Star, Check, X } from "lucide-react";
-import { format } from "date-fns";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Calendar, Clock, MapPin, Phone, Star, X, CalendarDays } from "lucide-react";
+import { format, addHours, isAfter } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -12,7 +13,17 @@ import type { AppointmentWithDetails } from "@shared/schema";
 
 export default function AppointmentsSection() {
   const [selectedAppointment, setSelectedAppointment] = useState<string | null>(null);
+  const [rescheduleDialog, setRescheduleDialog] = useState<string | null>(null);
+  const [newDate, setNewDate] = useState("");
+  const [newTime, setNewTime] = useState("");
   const { toast } = useToast();
+
+  // Função para verificar se pode cancelar/reagendar (12 horas antes)
+  const canModifyAppointment = (appointmentDate: Date) => {
+    const now = new Date();
+    const twelveHoursBefore = addHours(appointmentDate, -12);
+    return isAfter(now, twelveHoursBefore) === false;
+  };
   
   // Mock client ID - in real app this would come from authentication
   const clientId = "mock-client-id";
@@ -21,23 +32,29 @@ export default function AppointmentsSection() {
     queryKey: ["/api/appointments", { clientId }],
   });
 
-  // Mutação para confirmar presença
-  const confirmPresenceMutation = useMutation({
-    mutationFn: async (appointmentId: string) => {
-      await apiRequest(`/api/appointments/${appointmentId}/confirm-presence`, {
+  // Mutação para reagendar
+  const rescheduleAppointmentMutation = useMutation({
+    mutationFn: async ({ appointmentId, newDate, newTime }: { appointmentId: string; newDate: string; newTime: string }) => {
+      await apiRequest(`/api/appointments/${appointmentId}/reschedule`, {
         method: "PATCH",
+        body: {
+          newDate: `${newDate}T${newTime}:00`,
+        },
       });
     },
     onSuccess: () => {
       toast({
-        title: "Presença Confirmada",
-        description: "Sua presença foi confirmada com sucesso!",
+        title: "Reagendamento Realizado",
+        description: "Seu agendamento foi reagendado com sucesso!",
       });
+      setRescheduleDialog(null);
+      setNewDate("");
+      setNewTime("");
     },
     onError: () => {
       toast({
         title: "Erro",
-        description: "Não foi possível confirmar a presença. Tente novamente.",
+        description: "Não foi possível reagendar. Tente novamente.",
         variant: "destructive",
       });
     },
@@ -294,53 +311,111 @@ export default function AppointmentsSection() {
                   </div>
                   
                   <div className="flex space-x-2">
-                    <Button 
-                      variant="outline" 
-                      className={`px-3 py-2 rounded-xl text-xs font-medium transition-all duration-300 ${
-                        isSelected 
-                          ? "bg-primary/10 text-primary border-primary hover:bg-primary hover:text-white" 
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                    >
-                      Reagendar
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="px-3 py-2 rounded-xl text-xs font-medium bg-green-50 text-green-600 border-green-200 hover:bg-green-100"
-                      onClick={() => confirmPresenceMutation.mutate(appointment.id)}
-                      disabled={confirmPresenceMutation.isPending}
-                    >
-                      <Check className="w-3 h-3 mr-1" />
-                      Confirmar
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button 
-                          variant="outline" 
-                          className="px-3 py-2 rounded-xl text-xs font-medium bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
-                        >
-                          <X className="w-3 h-3 mr-1" />
-                          Cancelar
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Cancelar Agendamento</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Tem certeza que deseja cancelar este agendamento? A administradora será notificada sobre o cancelamento.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Não, manter agendamento</AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={() => cancelAppointmentMutation.mutate(appointment.id)}
-                            className="bg-red-600 hover:bg-red-700"
-                          >
-                            Sim, cancelar
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    {canModifyAppointment(new Date(appointment.date)) ? (
+                      <>
+                        <Dialog open={rescheduleDialog === appointment.id} onOpenChange={(open) => setRescheduleDialog(open ? appointment.id : null)}>
+                          <DialogTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              className={`px-4 py-2 rounded-xl text-xs font-medium transition-all duration-300 ${
+                                isSelected 
+                                  ? "bg-primary/10 text-primary border-primary hover:bg-primary hover:text-white" 
+                                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                              }`}
+                            >
+                              <CalendarDays className="w-3 h-3 mr-1" />
+                              Reagendar
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Reagendar Atendimento</DialogTitle>
+                              <DialogDescription>
+                                Escolha uma nova data e horário para seu atendimento de {appointment.service.name}.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                              <div>
+                                <label className="block text-sm font-medium mb-2">Nova Data</label>
+                                <input
+                                  type="date"
+                                  value={newDate}
+                                  onChange={(e) => setNewDate(e.target.value)}
+                                  min={format(new Date(), "yyyy-MM-dd")}
+                                  className="w-full p-2 border border-gray-300 rounded-lg"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium mb-2">Novo Horário</label>
+                                <select
+                                  value={newTime}
+                                  onChange={(e) => setNewTime(e.target.value)}
+                                  className="w-full p-2 border border-gray-300 rounded-lg"
+                                >
+                                  <option value="">Selecione um horário</option>
+                                  <option value="09:00">09:00</option>
+                                  <option value="10:00">10:00</option>
+                                  <option value="11:00">11:00</option>
+                                  <option value="14:00">14:00</option>
+                                  <option value="15:00">15:00</option>
+                                  <option value="16:00">16:00</option>
+                                  <option value="17:00">17:00</option>
+                                </select>
+                              </div>
+                            </div>
+                            <DialogFooter>
+                              <Button variant="outline" onClick={() => setRescheduleDialog(null)}>
+                                Cancelar
+                              </Button>
+                              <Button 
+                                onClick={() => rescheduleAppointmentMutation.mutate({
+                                  appointmentId: appointment.id,
+                                  newDate,
+                                  newTime
+                                })}
+                                disabled={!newDate || !newTime || rescheduleAppointmentMutation.isPending}
+                                className="bg-primary hover:bg-primary/90"
+                              >
+                                Confirmar Reagendamento
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              className="px-4 py-2 rounded-xl text-xs font-medium bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+                            >
+                              <X className="w-3 h-3 mr-1" />
+                              Cancelar
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Cancelar Agendamento</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Tem certeza que deseja cancelar este agendamento? A administradora será notificada sobre o cancelamento.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Não, manter agendamento</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={() => cancelAppointmentMutation.mutate(appointment.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Sim, cancelar
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </>
+                    ) : (
+                      <div className="text-xs text-gray-500 text-center px-4 py-2">
+                        Alterações disponíveis até 12h antes do atendimento
+                      </div>
+                    )}
                   </div>
                 </div>
 
