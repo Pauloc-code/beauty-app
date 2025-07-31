@@ -1,20 +1,72 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, MapPin, Phone, Star } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Calendar, Clock, MapPin, Phone, Star, Check, X } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { AppointmentWithDetails } from "@shared/schema";
 
 export default function AppointmentsSection() {
   const [selectedAppointment, setSelectedAppointment] = useState<string | null>(null);
+  const { toast } = useToast();
   
   // Mock client ID - in real app this would come from authentication
   const clientId = "mock-client-id";
   
   const { data: appointments, isLoading } = useQuery({
     queryKey: ["/api/appointments", { clientId }],
+  });
+
+  // Mutação para confirmar presença
+  const confirmPresenceMutation = useMutation({
+    mutationFn: async (appointmentId: string) => {
+      await apiRequest(`/api/appointments/${appointmentId}/confirm-presence`, {
+        method: "PATCH",
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Presença Confirmada",
+        description: "Sua presença foi confirmada com sucesso!",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível confirmar a presença. Tente novamente.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutação para cancelar agendamento
+  const cancelAppointmentMutation = useMutation({
+    mutationFn: async (appointmentId: string) => {
+      await apiRequest(`/api/appointments/${appointmentId}/cancel`, {
+        method: "PATCH",
+        body: {
+          cancellationReason: "Cancelamento solicitado pela cliente",
+          notifyAdmin: true,
+        },
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Agendamento Cancelado",
+        description: "A administradora foi notificada sobre o cancelamento.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível cancelar o agendamento. Tente novamente.",
+        variant: "destructive",
+      });
+    },
   });
 
   // Dados de exemplo para demonstração
@@ -244,7 +296,7 @@ export default function AppointmentsSection() {
                   <div className="flex space-x-2">
                     <Button 
                       variant="outline" 
-                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
+                      className={`px-3 py-2 rounded-xl text-xs font-medium transition-all duration-300 ${
                         isSelected 
                           ? "bg-primary/10 text-primary border-primary hover:bg-primary hover:text-white" 
                           : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -254,10 +306,41 @@ export default function AppointmentsSection() {
                     </Button>
                     <Button 
                       variant="outline" 
-                      className="px-4 py-2 rounded-xl text-sm font-medium bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+                      className="px-3 py-2 rounded-xl text-xs font-medium bg-green-50 text-green-600 border-green-200 hover:bg-green-100"
+                      onClick={() => confirmPresenceMutation.mutate(appointment.id)}
+                      disabled={confirmPresenceMutation.isPending}
                     >
-                      Cancelar
+                      <Check className="w-3 h-3 mr-1" />
+                      Confirmar
                     </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          className="px-3 py-2 rounded-xl text-xs font-medium bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+                        >
+                          <X className="w-3 h-3 mr-1" />
+                          Cancelar
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Cancelar Agendamento</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Tem certeza que deseja cancelar este agendamento? A administradora será notificada sobre o cancelamento.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Não, manter agendamento</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => cancelAppointmentMutation.mutate(appointment.id)}
+                            className="bg-red-600 hover:bg-red-700"
+                          >
+                            Sim, cancelar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
 
