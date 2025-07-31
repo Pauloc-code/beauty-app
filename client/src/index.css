@@ -37,6 +37,16 @@
 }
 
 .dark {
+  /* Dynamic Color Variables for Dark Mode */
+  --primary-color: #e91e63;
+  --accent-color: #f06292;
+  --gradient-start: #e91e63;
+  --gradient-end: #f06292;
+  --selection-color: #e91e63;
+  --border-color: #e91e63;
+  --header-background-color: #1a1a1a;
+  --header-gradient: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+
   --background: hsl(240, 10%, 3.9%);
   --foreground: hsl(0, 0%, 98%);
   --muted: hsl(240, 3.7%, 15.9%);
@@ -47,15 +57,15 @@
   --card-foreground: hsl(0, 0%, 98%);
   --border: hsl(240, 3.7%, 15.9%);
   --input: hsl(240, 3.7%, 15.9%);
-  --primary: hsl(340, 82%, 52%);
+  --primary: var(--primary-color);
   --primary-foreground: hsl(0, 0%, 100%);
   --secondary: hsl(240, 3.7%, 15.9%);
   --secondary-foreground: hsl(0, 0%, 98%);
-  --accent: hsl(338, 80%, 67%);
+  --accent: var(--accent-color);
   --accent-foreground: hsl(0, 0%, 100%);
   --destructive: hsl(0, 62.8%, 30.6%);
   --destructive-foreground: hsl(0, 0%, 98%);
-  --ring: hsl(240, 4.9%, 83.9%);
+  --ring: var(--selection-color);
   --radius: 0.5rem;
 }
 
@@ -74,8 +84,13 @@
   max-width: 375px;
   margin: 0 auto;
   min-height: 100vh;
-  background: white;
+  background: hsl(var(--background));
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.3s ease;
+}
+
+.dark .mobile-container {
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
 }
 
 .gradient-header {

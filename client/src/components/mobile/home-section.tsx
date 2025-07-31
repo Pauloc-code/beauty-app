@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Plus, Star, Heart, Sparkles, Clock, MapPin, Gift, Award, Crown } from "lucide-react";
+import ThemeSelector from "@/components/mobile/theme-selector";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { AppointmentWithDetails, GalleryImage } from "@shared/schema";
@@ -100,13 +101,19 @@ export default function HomeSection() {
     <div className="p-4 space-y-6">
       {/* Welcome Header */}
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-1">Olá, Maria! 👋</h2>
-        <p className="text-gray-600">Que tal cuidar das suas unhas hoje?</p>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Olá, Maria! 👋</h2>
+        <p className="text-gray-600 dark:text-gray-400">Que tal cuidar das suas unhas hoje?</p>
+      </div>
+
+      {/* Theme Selector */}
+      <div>
+        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-3">Configurações</h3>
+        <ThemeSelector />
       </div>
 
       {/* Next Appointment Card */}
       <div>
-        <h3 className="text-lg font-bold text-gray-900 mb-3">Próximo Agendamento</h3>
+        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-3">Próximo Agendamento</h3>
         {isLoading ? (
           <div className="bg-white rounded-2xl p-4 shadow-sm border animate-pulse">
             <div className="flex items-center space-x-3">
@@ -174,7 +181,7 @@ export default function HomeSection() {
       {/* Recent Work Gallery */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-bold text-gray-900">Trabalhos Recentes</h3>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Trabalhos Recentes</h3>
           <Button 
             variant="ghost" 
             className="text-sm"
@@ -228,7 +235,7 @@ export default function HomeSection() {
               className="w-6 h-6" 
               style={{ color: 'var(--primary-color)' }}
             />
-            <h4 className="font-bold text-gray-900">Cartão Fidelidade</h4>
+            <h4 className="font-bold text-gray-900 dark:text-gray-100">Cartão Fidelidade</h4>
           </div>
           <Badge 
             className="text-white"
@@ -270,7 +277,7 @@ export default function HomeSection() {
         </div>
         
         <div className="space-y-3">
-          <h5 className="font-semibold text-gray-900 flex items-center">
+          <h5 className="font-semibold text-gray-900 dark:text-gray-100 flex items-center">
             <Star className="w-4 h-4 mr-2 text-amber-500" />
             Prêmios Disponíveis
           </h5>
