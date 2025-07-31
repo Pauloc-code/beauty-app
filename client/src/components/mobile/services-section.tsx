@@ -82,8 +82,8 @@ export default function ServicesSection() {
   return (
     <div className="p-4">
       <div className="mb-6">
-        <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Nossos Serviços</h3>
-        <p className="text-gray-600 dark:text-gray-400 text-sm">Escolha o serviço perfeito para você</p>
+        <h3 className="text-xl font-bold text-gray-900">Nossos Serviços</h3>
+        <p className="text-gray-600 text-sm">Escolha o serviço perfeito para você</p>
       </div>
       
       <div className="grid grid-cols-1 gap-4">
@@ -91,7 +91,7 @@ export default function ServicesSection() {
           <div
             key={service.id}
             onClick={() => setSelectedService(selectedService === service.id ? null : service.id)}
-            className={`relative bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 transition-all duration-300 cursor-pointer ${
+            className={`relative bg-white rounded-2xl p-4 shadow-sm border transition-all duration-300 cursor-pointer ${
               selectedService === service.id
                 ? "shadow-lg transform scale-[1.02]"
                 : "border-gray-200 hover:shadow-md active:scale-[0.98]"
