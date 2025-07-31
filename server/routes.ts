@@ -167,7 +167,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/appointments", async (req, res) => {
     try {
       console.log("Received appointment data:", req.body);
-      const appointmentData = insertAppointmentSchema.parse(req.body);
+      
+      // Convert date string to Date object if needed
+      const processedData = {
+        ...req.body,
+        date: typeof req.body.date === 'string' ? new Date(req.body.date) : req.body.date
+      };
+      
+      console.log("Processed appointment data:", processedData);
+      const appointmentData = insertAppointmentSchema.parse(processedData);
       console.log("Parsed appointment data:", appointmentData);
       const appointment = await storage.createAppointment(appointmentData);
       console.log("Created appointment:", appointment);
