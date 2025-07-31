@@ -62,7 +62,7 @@ export default function PortfolioSection() {
     }
   ];
 
-  const imagesToShow = galleryImages?.length ? galleryImages : defaultImages;
+  const imagesToShow = (galleryImages as GalleryImage[])?.length ? (galleryImages as GalleryImage[]) : defaultImages;
 
   const toggleLike = (imageId: string) => {
     const newLikedImages = new Set(likedImages);
@@ -98,7 +98,7 @@ export default function PortfolioSection() {
       </div>
       
       <div className="grid grid-cols-2 gap-3">
-        {imagesToShow.map((image, index) => (
+        {imagesToShow.map((image: GalleryImage, index: number) => (
           <div
             key={image.id || index}
             onClick={() => setSelectedImage(selectedImage === image.id ? null : image.id || index.toString())}
@@ -108,11 +108,16 @@ export default function PortfolioSection() {
                 : "hover:scale-[1.02]"
             }`}
           >
-            <div className={`relative overflow-hidden rounded-2xl ${
-              selectedImage === image.id || selectedImage === index.toString()
-                ? "ring-3 ring-primary ring-offset-2 shadow-2xl"
-                : "shadow-sm hover:shadow-lg"
-            }`}>
+            <div 
+              className={`relative overflow-hidden rounded-2xl ${
+                selectedImage === image.id || selectedImage === index.toString()
+                  ? "ring-3 ring-offset-2 shadow-2xl"
+                  : "shadow-sm hover:shadow-lg"
+              }`}
+              style={(selectedImage === image.id || selectedImage === index.toString()) ? {
+                '--tw-ring-color': 'var(--primary-color)'
+              } as React.CSSProperties : {}}
+            >
               <img
                 src={image.url}
                 alt={image.title || `Trabalho ${index + 1}`}
@@ -134,7 +139,10 @@ export default function PortfolioSection() {
               }`}>
                 <h4 className="font-semibold text-sm mb-1">{image.title}</h4>
                 {image.category && (
-                  <span className="text-xs bg-primary px-2 py-1 rounded-full">
+                  <span 
+                    className="text-xs px-2 py-1 rounded-full"
+                    style={{ backgroundColor: 'var(--primary-color)' }}
+                  >
                     {image.category}
                   </span>
                 )}

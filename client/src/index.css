@@ -8,6 +8,9 @@
   --accent-color: #f06292;
   --gradient-start: #e91e63;
   --gradient-end: #f06292;
+  --selection-color: #e91e63;
+  --border-color: #e91e63;
+  --header-background-color: #f8f9fa;
   --header-gradient: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
 
   --background: hsl(0, 0%, 100%);
@@ -20,15 +23,15 @@
   --card-foreground: hsl(20, 14.3%, 4.1%);
   --border: hsl(20, 5.9%, 90%);
   --input: hsl(20, 5.9%, 90%);
-  --primary: hsl(340, 82%, 52%);
+  --primary: var(--primary-color);
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(340, 75%, 95%);
+  --secondary: var(--accent-color);
   --secondary-foreground: hsl(340, 45%, 15%);
-  --accent: hsl(338, 80%, 67%);
+  --accent: var(--accent-color);
   --accent-foreground: hsl(0, 0%, 100%);
   --destructive: hsl(0, 84.2%, 60.2%);
   --destructive-foreground: hsl(60, 9.1%, 97.8%);
-  --ring: hsl(20, 14.3%, 4.1%);
+  --ring: var(--selection-color);
   --radius: 0.5rem;
   --neutral: hsl(210, 17%, 98%);
 }
@@ -116,8 +119,8 @@
 }
 
 .nav-tab.active {
-  border-bottom-color: hsl(340, 82%, 52%);
-  color: hsl(340, 82%, 52%);
+  border-bottom-color: var(--primary-color);
+  color: var(--primary-color);
 }
 
 .gallery-image {

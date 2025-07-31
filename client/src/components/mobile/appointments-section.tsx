@@ -87,7 +87,7 @@ export default function AppointmentsSection() {
     }
   ];
 
-  const appointmentsToShow = appointments?.length ? appointments : mockAppointments;
+  const appointmentsToShow = (appointments as AppointmentWithDetails[])?.length ? (appointments as AppointmentWithDetails[]) : mockAppointments;
 
   const getStatusInfo = (status: string) => {
     switch (status) {

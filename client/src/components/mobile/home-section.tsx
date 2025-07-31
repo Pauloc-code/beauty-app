@@ -175,7 +175,11 @@ export default function HomeSection() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-bold text-gray-900">Trabalhos Recentes</h3>
-          <Button variant="ghost" className="text-primary text-sm">
+          <Button 
+            variant="ghost" 
+            className="text-sm"
+            style={{ color: 'var(--primary-color)' }}
+          >
             Ver Todos
           </Button>
         </div>
@@ -196,7 +200,10 @@ export default function HomeSection() {
                 <div className="absolute bottom-2 left-2 right-2 text-white transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
                   <p className="text-xs font-medium">{image.title}</p>
                   {image.category && (
-                    <span className="text-xs bg-primary px-2 py-1 rounded-full">
+                    <span 
+                      className="text-xs px-2 py-1 rounded-full"
+                      style={{ backgroundColor: 'var(--primary-color)' }}
+                    >
                       {image.category}
                     </span>
                   )}
@@ -208,28 +215,58 @@ export default function HomeSection() {
       </div>
 
       {/* Loyalty Card with Rewards */}
-      <div className="bg-gradient-to-br from-primary/10 via-accent/10 to-primary/5 rounded-2xl p-4 border border-primary/20">
+      <div 
+        className="rounded-2xl p-4 border"
+        style={{
+          background: `linear-gradient(to bottom right, var(--primary-color)10, var(--accent-color)10, var(--primary-color)05)`,
+          borderColor: 'var(--primary-color)20'
+        }}
+      >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-2">
-            <Gift className="w-6 h-6 text-primary" />
+            <Gift 
+              className="w-6 h-6" 
+              style={{ color: 'var(--primary-color)' }}
+            />
             <h4 className="font-bold text-gray-900">Cartão Fidelidade</h4>
           </div>
-          <Badge className="bg-primary text-white">VIP</Badge>
+          <Badge 
+            className="text-white"
+            style={{ backgroundColor: 'var(--primary-color)' }}
+          >
+            VIP
+          </Badge>
         </div>
         
         <div className="flex items-center justify-between mb-4">
           <div>
             <p className="text-sm text-gray-600">Seus pontos</p>
-            <p className="text-2xl font-bold text-primary">150 pts</p>
+            <p 
+              className="text-2xl font-bold"
+              style={{ color: 'var(--primary-color)' }}
+            >
+              150 pts
+            </p>
           </div>
           <div className="text-right">
             <p className="text-sm text-gray-600">Para próxima recompensa</p>
-            <p className="text-sm font-semibold text-accent">50 pts restantes</p>
+            <p 
+              className="text-sm font-semibold"
+              style={{ color: 'var(--accent-color)' }}
+            >
+              50 pts restantes
+            </p>
           </div>
         </div>
         
         <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
-          <div className="bg-gradient-to-r from-primary to-accent h-3 rounded-full transition-all duration-500" style={{ width: '75%' }}></div>
+          <div 
+            className="h-3 rounded-full transition-all duration-500" 
+            style={{ 
+              width: '75%',
+              background: `linear-gradient(to right, var(--primary-color), var(--accent-color))`
+            }}
+          ></div>
         </div>
         
         <div className="space-y-3">
@@ -240,7 +277,10 @@ export default function HomeSection() {
           
           <div className="grid grid-cols-2 gap-3">
             {/* Available Rewards */}
-            <div className="bg-white/50 rounded-xl p-3 border border-primary/10">
+            <div 
+              className="bg-white/50 rounded-xl p-3 border"
+              style={{ borderColor: 'var(--primary-color)10' }}
+            >
               <div className="flex items-center space-x-2 mb-2">
                 <Crown className="w-4 h-4 text-amber-500" />
                 <span className="text-xs font-medium text-gray-700">200 pts</span>
@@ -249,7 +289,10 @@ export default function HomeSection() {
               <p className="text-xs text-gray-600">Mão + Pé + Hidratação</p>
             </div>
             
-            <div className="bg-white/50 rounded-xl p-3 border border-primary/10">
+            <div 
+              className="bg-white/50 rounded-xl p-3 border"
+              style={{ borderColor: 'var(--primary-color)10' }}
+            >
               <div className="flex items-center space-x-2 mb-2">
                 <Award className="w-4 h-4 text-purple-500" />
                 <span className="text-xs font-medium text-gray-700">100 pts</span>
@@ -258,13 +301,37 @@ export default function HomeSection() {
               <p className="text-xs text-gray-600">Design personalizado</p>
             </div>
             
-            <div className="bg-primary/5 rounded-xl p-3 border border-primary/20">
+            <div 
+              className="rounded-xl p-3 border"
+              style={{
+                backgroundColor: 'var(--primary-color)05',
+                borderColor: 'var(--primary-color)20'
+              }}
+            >
               <div className="flex items-center space-x-2 mb-2">
-                <Gift className="w-4 h-4 text-primary" />
-                <span className="text-xs font-medium text-primary">50 pts</span>
+                <Gift 
+                  className="w-4 h-4" 
+                  style={{ color: 'var(--primary-color)' }}
+                />
+                <span 
+                  className="text-xs font-medium" 
+                  style={{ color: 'var(--primary-color)' }}
+                >
+                  50 pts
+                </span>
               </div>
-              <p className="text-sm font-semibold text-primary">Desconto 20%</p>
-              <p className="text-xs text-primary/70">Próximo serviço</p>
+              <p 
+                className="text-sm font-semibold" 
+                style={{ color: 'var(--primary-color)' }}
+              >
+                Desconto 20%
+              </p>
+              <p 
+                className="text-xs" 
+                style={{ color: 'var(--primary-color)70' }}
+              >
+                Próximo serviço
+              </p>
               <Button size="sm" className="w-full mt-2 h-6 text-xs">
                 Resgatar
               </Button>

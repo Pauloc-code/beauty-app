@@ -21,9 +21,23 @@ export default function MobileNavigation({ activeSection, onSectionChange }: Mob
             onClick={() => onSectionChange(section.id)}
             className={`relative flex flex-col items-center p-3 rounded-xl transition-all duration-200 ${
               activeSection === section.id
-                ? "bg-primary text-white shadow-lg transform scale-105"
-                : "text-gray-600 hover:bg-gray-50 hover:text-primary active:scale-95"
+                ? "text-white shadow-lg transform scale-105"
+                : "text-gray-600 hover:bg-gray-50 active:scale-95"
             }`}
+            style={{
+              backgroundColor: activeSection === section.id ? 'var(--primary-color)' : 'transparent',
+              color: activeSection === section.id ? 'white' : undefined
+            }}
+            onMouseEnter={(e) => {
+              if (activeSection !== section.id) {
+                e.currentTarget.style.color = 'var(--primary-color)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (activeSection !== section.id) {
+                e.currentTarget.style.color = '';
+              }
+            }}
           >
             <span className="text-lg mb-1">{section.icon}</span>
             <span className="text-xs font-medium">{section.label}</span>
