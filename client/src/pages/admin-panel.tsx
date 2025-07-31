@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { DebugLogger } from "@/lib/debug-logger";
 import { TestDataGenerator } from "@/lib/test-data-generator";
+import { SystemTester } from "@/lib/system-tester";
 import AdminHeader from "@/components/admin/admin-header";
 import AdminNavigation from "@/components/admin/admin-navigation";
 import DashboardSection from "@/components/admin/dashboard-section";
@@ -17,6 +18,7 @@ export default function AdminPanel() {
   const [, setLocation] = useLocation();
   const [activeSection, setActiveSection] = useState("dashboard");
   const [isGeneratingTestData, setIsGeneratingTestData] = useState(false);
+  const [isRunningTests, setIsRunningTests] = useState(false);
 
   const handleGenerateTestData = async () => {
     DebugLogger.log("AdminPanel", "Starting test data generation");
@@ -28,6 +30,19 @@ export default function AdminPanel() {
       DebugLogger.error("AdminPanel", "Test data generation failed", error);
     } finally {
       setIsGeneratingTestData(false);
+    }
+  };
+
+  const handleRunSystemTests = async () => {
+    DebugLogger.log("AdminPanel", "Starting comprehensive system tests");
+    setIsRunningTests(true);
+    try {
+      await SystemTester.runFullSystemTest();
+      DebugLogger.success("AdminPanel", "All system tests completed successfully");
+    } catch (error) {
+      DebugLogger.error("AdminPanel", "System tests failed", error);
+    } finally {
+      setIsRunningTests(false);
     }
   };
 
@@ -71,11 +86,20 @@ export default function AdminPanel() {
             <Button
               variant="outline"
               size="sm"
-              className="py-2 px-4 text-xs"
+              className="py-2 px-4 text-xs mr-2"
               onClick={handleGenerateTestData}
               disabled={isGeneratingTestData}
             >
               {isGeneratingTestData ? "Gerando..." : "🧪 Dados de Teste"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="py-2 px-4 text-xs"
+              onClick={handleRunSystemTests}
+              disabled={isRunningTests}
+            >
+              {isRunningTests ? "Testando..." : "🔬 Testar Sistema"}
             </Button>
           </div>
         </div>
