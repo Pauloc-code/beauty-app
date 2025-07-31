@@ -127,3 +127,87 @@
     box-shadow: none;
   }
 }
+
+/* Interactive Card Effects */
+@layer utilities {
+  .card-highlight {
+    @apply ring-2 ring-primary ring-offset-2 shadow-xl;
+    animation: highlight-pulse 2s infinite;
+  }
+
+  .card-glow {
+    box-shadow: 
+      0 0 20px rgba(236, 72, 153, 0.3),
+      0 0 40px rgba(236, 72, 153, 0.2),
+      0 0 80px rgba(236, 72, 153, 0.1);
+  }
+
+  .card-interactive {
+    @apply transition-all duration-300 ease-out cursor-pointer;
+    @apply hover:shadow-lg hover:-translate-y-1;
+    @apply active:scale-[0.98] active:translate-y-0;
+  }
+
+  .card-selected {
+    @apply ring-2 ring-primary ring-offset-2 shadow-xl scale-[1.02];
+    background: linear-gradient(135deg, rgba(236, 72, 153, 0.1), rgba(168, 85, 247, 0.1));
+  }
+
+  .touch-highlight {
+    -webkit-tap-highlight-color: rgba(236, 72, 153, 0.3);
+    tap-highlight-color: rgba(236, 72, 153, 0.3);
+  }
+
+  .shimmer {
+    background: linear-gradient(90deg, 
+      rgba(255, 255, 255, 0) 0%, 
+      rgba(255, 255, 255, 0.6) 50%, 
+      rgba(255, 255, 255, 0) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  .btn-glow {
+    box-shadow: 0 0 20px rgba(236, 72, 153, 0.4);
+    @apply transition-all duration-300;
+  }
+
+  .btn-glow:hover {
+    box-shadow: 0 0 30px rgba(236, 72, 153, 0.6);
+    @apply scale-105;
+  }
+}
+
+@keyframes highlight-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(236, 72, 153, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(236, 72, 153, 0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Mobile Touch Enhancements */
+@media (max-width: 768px) {
+  .card-selected {
+    @apply scale-[1.01];
+  }
+  
+  .card-interactive:active {
+    @apply scale-95;
+  }
+  
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
