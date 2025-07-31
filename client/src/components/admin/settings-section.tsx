@@ -37,7 +37,7 @@ export default function SettingsSection() {
 
   const updateSettingsMutation = useMutation({
     mutationFn: (data: { key: string; value: string }[]) =>
-      apiRequest("/api/settings/bulk", "POST", data),
+      apiRequest("POST", "/api/settings/bulk", data),
     onSuccess: () => {
       // Apply colors immediately
       const mockSettings = [

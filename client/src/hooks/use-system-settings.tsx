@@ -6,7 +6,6 @@ import { applyColorSettings } from "@/lib/color-utils";
 export function useSystemSettings() {
   const { data: settings, isLoading } = useQuery<SystemSettings[]>({
     queryKey: ["/api/settings"],
-    refetchInterval: 1000, // Refetch every second to catch updates
   });
 
   useEffect(() => {
