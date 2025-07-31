@@ -11,8 +11,7 @@ import AdminPanel from "@/pages/admin-panel";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={MobileApp} />
-      <Route path="/admin" component={AdminPanel} />
+      <Route path="/" component={AdminPanel} />
       <Route component={NotFound} />
     </Switch>
   );

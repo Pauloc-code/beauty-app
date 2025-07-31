@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { DebugLogger } from "@/lib/debug-logger";
 import { TestDataGenerator } from "@/lib/test-data-generator";
-import { QuickTester } from "@/lib/quick-tester";
+import { AdminTester } from "@/lib/admin-tester";
 import AdminHeader from "@/components/admin/admin-header";
 import AdminNavigation from "@/components/admin/admin-navigation";
 import DashboardSection from "@/components/admin/dashboard-section";
@@ -33,14 +33,14 @@ export default function AdminPanel() {
     }
   };
 
-  const handleRunQuickTests = async () => {
-    DebugLogger.log("AdminPanel", "Starting quick system validation");
+  const handleRunAdminTests = async () => {
+    DebugLogger.log("AdminPanel", "Starting admin panel validation");
     setIsRunningTests(true);
     try {
-      await QuickTester.runQuickTests();
-      DebugLogger.success("AdminPanel", "Quick tests completed successfully");
+      await AdminTester.testAdminFunctions();
+      DebugLogger.success("AdminPanel", "Admin tests completed successfully");
     } catch (error) {
-      DebugLogger.error("AdminPanel", "Quick tests failed", error);
+      DebugLogger.error("AdminPanel", "Admin tests failed", error);
     } finally {
       setIsRunningTests(false);
     }
@@ -96,10 +96,10 @@ export default function AdminPanel() {
               variant="outline"
               size="sm"
               className="py-2 px-4 text-xs"
-              onClick={handleRunQuickTests}
+              onClick={handleRunAdminTests}
               disabled={isRunningTests}
             >
-              {isRunningTests ? "Testando..." : "🔍 Teste Rápido"}
+              {isRunningTests ? "Testando..." : "🔧 Teste Admin"}
             </Button>
           </div>
         </div>
