@@ -16,6 +16,7 @@ export const clients = pgTable("clients", {
   cpf: varchar("cpf", { length: 11 }).notNull().unique(),
   email: text("email"),
   phone: text("phone").notNull(),
+  notes: text("notes"),
   points: integer("points").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

@@ -80,23 +80,22 @@ export default function DashboardSection() {
       name: z.string().min(1, "Nome é obrigatório"),
       cpf: z.string().min(11, "CPF deve ter 11 dígitos").max(11, "CPF deve ter 11 dígitos"),
       email: z.string().email("Email inválido").optional().or(z.literal("")),
-      phone: z.string().min(1, "Telefone é obrigatório")
+      phone: z.string().min(1, "Telefone é obrigatório"),
+      notes: z.string().optional()
     })),
     defaultValues: {
       name: "",
       cpf: "",
       email: "",
-      phone: ""
+      phone: "",
+      notes: ""
     }
   });
 
   const createClientMutation = useMutation({
     mutationFn: async (data: any) => {
       console.log("Creating client with data:", data);
-      return apiRequest("/api/clients", {
-        method: "POST",
-        body: JSON.stringify(data)
-      });
+      return apiRequest("POST", "/api/clients", data);
     },
     onSuccess: () => {
       console.log("Client created successfully");
@@ -578,6 +577,23 @@ export default function DashboardSection() {
                     <FormLabel>Telefone</FormLabel>
                     <FormControl>
                       <Input placeholder="(11) 99999-9999" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={clientForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Observações (opcional)</FormLabel>
+                    <FormControl>
+                      <textarea 
+                        className="w-full mt-1 p-2 border rounded-md h-20 text-sm resize-none"
+                        placeholder="Observações sobre o cliente..."
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
