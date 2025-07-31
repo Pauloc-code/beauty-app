@@ -47,7 +47,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/clients", async (req, res) => {
     try {
+      console.log("Received client data:", req.body);
       const clientData = insertClientSchema.parse(req.body);
+      console.log("Parsed client data:", clientData);
       
       // Verificar se CPF já existe
       const existingClient = await storage.getClientByCpf(clientData.cpf);
@@ -56,9 +58,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const client = await storage.createClient(clientData);
+      console.log("Created client:", client);
       res.status(201).json(client);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid client data", errors: error.errors });
       }
       console.error("Error creating client:", error);

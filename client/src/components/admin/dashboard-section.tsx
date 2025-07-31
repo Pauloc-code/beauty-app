@@ -95,10 +95,11 @@ export default function DashboardSection() {
   const createClientMutation = useMutation({
     mutationFn: async (data: any) => {
       console.log("Creating client with data:", data);
-      return apiRequest("POST", "/api/clients", data);
+      const response = await apiRequest("POST", "/api/clients", data);
+      return response.json();
     },
-    onSuccess: () => {
-      console.log("Client created successfully");
+    onSuccess: (data) => {
+      console.log("Client created successfully:", data);
       toast({
         title: "Sucesso",
         description: "Cliente cadastrado com sucesso",
@@ -111,7 +112,7 @@ export default function DashboardSection() {
       console.error("Error creating client:", error);
       toast({
         title: "Erro",
-        description: "Erro ao cadastrar cliente",
+        description: error.message || "Erro ao cadastrar cliente",
         variant: "destructive"
       });
     }
