@@ -59,18 +59,31 @@ export default function DashboardSection() {
       serviceId: "",
       date: new Date().toISOString().split('T')[0],
       time: "",
-      status: "agendado",
+      status: "scheduled",
       notes: ""
     }
   });
 
   const createAppointmentMutation = useMutation({
     mutationFn: async (data: any) => {
+      console.log("Dados do formulário:", data);
+      
+      // Buscar o serviço para obter o preço
+      const selectedService = services.find((s: any) => s.id === data.serviceId);
+      if (!selectedService) {
+        throw new Error("Serviço não encontrado");
+      }
+      
       const appointmentData = {
-        ...data,
-        date: `${data.date}T${data.time}:00.000Z`
+        clientId: data.clientId,
+        serviceId: data.serviceId,
+        date: `${data.date}T${data.time}:00.000Z`,
+        status: data.status || "scheduled",
+        price: selectedService.price,
+        notes: data.notes || ""
       };
-      delete appointmentData.time;
+      
+      console.log("Dados enviados para API:", appointmentData);
       return apiRequest("POST", "/api/appointments", appointmentData);
     },
     onSuccess: () => {
@@ -84,6 +97,7 @@ export default function DashboardSection() {
       });
     },
     onError: (error: any) => {
+      console.error("Erro ao criar agendamento:", error);
       toast({
         title: "Erro",
         description: error.message || "Erro ao criar agendamento",
@@ -151,19 +165,25 @@ export default function DashboardSection() {
                       Novo Agendamento
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-md">
+                  <DialogContent className="sm:max-w-md" aria-describedby="new-appointment-description">
                     <DialogHeader>
                       <DialogTitle>Novo Agendamento</DialogTitle>
+                      <p id="new-appointment-description" className="text-sm text-gray-600">
+                        Crie um novo agendamento selecionando cliente, serviço, data e horário.
+                      </p>
                     </DialogHeader>
                     <Form {...appointmentForm}>
-                      <form onSubmit={appointmentForm.handleSubmit((data) => createAppointmentMutation.mutate(data))} className="space-y-4">
+                      <form onSubmit={appointmentForm.handleSubmit((data) => {
+                        console.log("Submitting form with data:", data);
+                        createAppointmentMutation.mutate(data);
+                      })} className="space-y-4">
                         <FormField
                           control={appointmentForm.control}
                           name="clientId"
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Cliente</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
                                     <SelectValue placeholder="Selecione um cliente" />
@@ -187,7 +207,7 @@ export default function DashboardSection() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Serviço</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
                                     <SelectValue placeholder="Selecione um serviço" />
