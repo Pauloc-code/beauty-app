@@ -30,7 +30,7 @@ export default function ServicesSection() {
   });
 
   const createServiceMutation = useMutation({
-    mutationFn: (service: InsertService) => apiRequest("POST", "/api/services", service),
+    mutationFn: async (service: InsertService) => await apiRequest("POST", "/api/services", service),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/services"] });
       setIsNewServiceOpen(false);
@@ -50,8 +50,8 @@ export default function ServicesSection() {
   });
 
   const updateServiceMutation = useMutation({
-    mutationFn: ({ id, service }: { id: string, service: Partial<InsertService> }) =>
-      apiRequest("PATCH", `/api/services/${id}`, service),
+    mutationFn: async ({ id, service }: { id: string, service: Partial<InsertService> }) =>
+      await apiRequest("PATCH", `/api/services/${id}`, service),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/services"] });
       setEditingService(null);
@@ -71,7 +71,7 @@ export default function ServicesSection() {
   });
 
   const deleteServiceMutation = useMutation({
-    mutationFn: (serviceId: string) => apiRequest("DELETE", `/api/services/${serviceId}`),
+    mutationFn: async (serviceId: string) => await apiRequest("DELETE", `/api/services/${serviceId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/services"] });
       toast({
