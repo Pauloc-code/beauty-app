@@ -3,7 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { 
   Plus, 
   Filter, 
@@ -16,14 +18,65 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import type { InsertClient, Client } from "@shared/schema";
 
 export default function ClientsSection() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [isNewClientOpen, setIsNewClientOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [clientForm, setClientForm] = useState({
+    name: "",
+    cpf: "",
+    phone: "",
+    email: "",
+    birthdate: ""
+  });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: clients, isLoading } = useQuery({
     queryKey: ["/api/clients"],
+  });
+
+  const createClientMutation = useMutation({
+    mutationFn: (client: InsertClient) => apiRequest("POST", "/api/clients", client),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      setIsNewClientOpen(false);
+      resetForm();
+      toast({
+        title: "Cliente criado",
+        description: "Cliente foi criado com sucesso.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível criar o cliente.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateClientMutation = useMutation({
+    mutationFn: ({ id, client }: { id: string, client: Partial<InsertClient> }) => 
+      apiRequest("PATCH", `/api/clients/${id}`, client),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      setEditingClient(null);
+      resetForm();
+      toast({
+        title: "Cliente atualizado",
+        description: "Cliente foi atualizado com sucesso.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o cliente.",
+        variant: "destructive",
+      });
+    },
   });
 
   const deleteClientMutation = useMutation({
@@ -50,6 +103,57 @@ export default function ClientsSection() {
     client.phone.includes(searchTerm)
   );
 
+  const resetForm = () => {
+    setClientForm({
+      name: "",
+      cpf: "",
+      phone: "",
+      email: "",
+      birthdate: ""
+    });
+  };
+
+  const handleOpenNewClient = () => {
+    resetForm();
+    setIsNewClientOpen(true);
+  };
+
+  const handleEditClient = (client: Client) => {
+    setClientForm({
+      name: client.name,
+      cpf: client.cpf,
+      phone: client.phone,
+      email: client.email || "",
+      birthdate: client.birthdate ? format(new Date(client.birthdate), "yyyy-MM-dd") : ""
+    });
+    setEditingClient(client);
+  };
+
+  const handleSaveClient = () => {
+    if (!clientForm.name || !clientForm.cpf || !clientForm.phone) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Nome, CPF e telefone são obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const clientData: InsertClient = {
+      name: clientForm.name,
+      cpf: clientForm.cpf,
+      phone: clientForm.phone,
+      email: clientForm.email || undefined,
+      birthdate: clientForm.birthdate ? new Date(clientForm.birthdate) : undefined
+    };
+
+    if (editingClient) {
+      updateClientMutation.mutate({ id: editingClient.id, client: clientData });
+    } else {
+      createClientMutation.mutate(clientData);
+    }
+  };
+
   const handleDeleteClient = (clientId: string) => {
     if (confirm("Tem certeza que deseja remover este cliente?")) {
       deleteClientMutation.mutate(clientId);
@@ -62,7 +166,7 @@ export default function ClientsSection() {
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900">Gestão de Clientes</h2>
-            <Button className="bg-primary text-white hover:bg-primary/90">
+            <Button onClick={handleOpenNewClient} className="bg-primary text-white hover:bg-primary/90">
               <Plus className="w-4 h-4 mr-2" />
               Nova Cliente
             </Button>
@@ -163,6 +267,7 @@ export default function ClientsSection() {
                             variant="ghost"
                             size="sm"
                             className="text-gray-400 hover:text-primary"
+                            onClick={() => handleEditClient(client)}
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
@@ -191,6 +296,86 @@ export default function ClientsSection() {
           )}
         </CardContent>
       </Card>
+
+      {/* Client Modal */}
+      <Dialog open={isNewClientOpen || !!editingClient} onOpenChange={(open) => {
+        if (!open) {
+          setIsNewClientOpen(false);
+          setEditingClient(null);
+          resetForm();
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingClient ? "Editar Cliente" : "Nova Cliente"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="name">Nome *</Label>
+              <Input
+                id="name"
+                value={clientForm.name}
+                onChange={(e) => setClientForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Nome completo"
+              />
+            </div>
+            <div>
+              <Label htmlFor="cpf">CPF *</Label>
+              <Input
+                id="cpf"
+                value={clientForm.cpf}
+                onChange={(e) => setClientForm(prev => ({ ...prev, cpf: e.target.value }))}
+                placeholder="000.000.000-00"
+              />
+            </div>
+            <div>
+              <Label htmlFor="phone">Telefone *</Label>
+              <Input
+                id="phone"
+                value={clientForm.phone}
+                onChange={(e) => setClientForm(prev => ({ ...prev, phone: e.target.value }))}
+                placeholder="(00) 00000-0000"
+              />
+            </div>
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={clientForm.email}
+                onChange={(e) => setClientForm(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="cliente@email.com"
+              />
+            </div>
+            <div>
+              <Label htmlFor="birthdate">Data de Nascimento</Label>
+              <Input
+                id="birthdate"
+                type="date"
+                value={clientForm.birthdate}
+                onChange={(e) => setClientForm(prev => ({ ...prev, birthdate: e.target.value }))}
+              />
+            </div>
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button variant="outline" onClick={() => {
+                setIsNewClientOpen(false);
+                setEditingClient(null);
+                resetForm();
+              }}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleSaveClient} 
+                disabled={createClientMutation.isPending || updateClientMutation.isPending}
+              >
+                {createClientMutation.isPending || updateClientMutation.isPending ? "Salvando..." : "Salvar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

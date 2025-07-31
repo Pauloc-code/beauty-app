@@ -1,14 +1,59 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { TrendingUp, Plus, DollarSign } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { InsertTransaction } from "@shared/schema";
 
 export default function FinancialSection() {
+  const [isNewTransactionOpen, setIsNewTransactionOpen] = useState(false);
+  const [transactionForm, setTransactionForm] = useState({
+    service: "",
+    clientName: "",
+    amount: "",
+    method: "cash" as const
+  });
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const { data: transactions, isLoading } = useQuery({
     queryKey: ["/api/transactions"],
   });
 
   const { data: stats } = useQuery({
     queryKey: ["/api/stats/today"],
+  });
+
+  const { data: services } = useQuery({
+    queryKey: ["/api/services"],
+  });
+
+  const createTransactionMutation = useMutation({
+    mutationFn: (transaction: InsertTransaction) =>
+      apiRequest("POST", "/api/transactions", transaction),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/today"] });
+      setIsNewTransactionOpen(false);
+      resetForm();
+      toast({
+        title: "Lançamento criado",
+        description: "Transação foi registrada com sucesso.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível registrar a transação.",
+        variant: "destructive",
+      });
+    },
   });
 
   const recentTransactions = transactions?.slice(0, 10) || [];
@@ -41,6 +86,40 @@ export default function FinancialSection() {
     }
   ];
 
+  const resetForm = () => {
+    setTransactionForm({
+      service: "",
+      clientName: "",
+      amount: "",
+      method: "cash"
+    });
+  };
+
+  const handleSaveTransaction = () => {
+    if (!transactionForm.service || !transactionForm.clientName || !transactionForm.amount) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Serviço, nome do cliente e valor são obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const selectedService = services?.find(s => s.id === transactionForm.service);
+    
+    const transactionData: InsertTransaction = {
+      amount: parseFloat(transactionForm.amount),
+      type: "income",
+      method: transactionForm.method,
+      description: `${selectedService?.name || transactionForm.service} - ${transactionForm.clientName}`,
+      serviceId: transactionForm.service === "other" ? undefined : transactionForm.service,
+      clientId: null, // Walk-in client without registration
+      date: new Date()
+    };
+
+    createTransactionMutation.mutate(transactionData);
+  };
+
   const transactionsToShow = recentTransactions.length ? recentTransactions : mockTransactions;
 
   return (
@@ -50,7 +129,81 @@ export default function FinancialSection() {
         <div className="lg:col-span-2">
           <Card>
             <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Controle Financeiro</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">Controle Financeiro</h2>
+                <Dialog open={isNewTransactionOpen} onOpenChange={setIsNewTransactionOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-primary text-white hover:bg-primary/90">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Lançamento Manual
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Novo Lançamento Manual</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div>
+                        <Label htmlFor="service">Serviço *</Label>
+                        <Select value={transactionForm.service} onValueChange={(value) => setTransactionForm(prev => ({ ...prev, service: value }))}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione um serviço" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {services?.map((service) => (
+                              <SelectItem key={service.id} value={service.id}>
+                                {service.name} - R$ {service.price}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="other">Outro serviço</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="clientName">Nome do Cliente *</Label>
+                        <Input
+                          id="clientName"
+                          value={transactionForm.clientName}
+                          onChange={(e) => setTransactionForm(prev => ({ ...prev, clientName: e.target.value }))}
+                          placeholder="Nome da cliente"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="amount">Valor (R$) *</Label>
+                        <Input
+                          id="amount"
+                          type="number"
+                          step="0.01"
+                          value={transactionForm.amount}
+                          onChange={(e) => setTransactionForm(prev => ({ ...prev, amount: e.target.value }))}
+                          placeholder="35.00"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="method">Forma de Pagamento *</Label>
+                        <Select value={transactionForm.method} onValueChange={(value: "cash" | "card" | "pix") => setTransactionForm(prev => ({ ...prev, method: value }))}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="cash">Dinheiro</SelectItem>
+                            <SelectItem value="card">Cartão</SelectItem>
+                            <SelectItem value="pix">PIX</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex justify-end space-x-2 pt-4">
+                        <Button variant="outline" onClick={() => setIsNewTransactionOpen(false)}>
+                          Cancelar
+                        </Button>
+                        <Button onClick={handleSaveTransaction} disabled={createTransactionMutation.isPending}>
+                          {createTransactionMutation.isPending ? "Salvando..." : "Salvar"}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
             <CardContent className="p-6">
               {/* Financial metrics */}

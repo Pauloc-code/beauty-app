@@ -1,17 +1,68 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, Filter, Plus } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { InsertAppointment } from "@shared/schema";
 
 export default function CalendarSection() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"month" | "week" | "day">("month");
+  const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false);
+  const [newAppointment, setNewAppointment] = useState({
+    date: format(new Date(), "yyyy-MM-dd"),
+    time: "09:00",
+    clientId: "",
+    serviceId: "",
+    status: "scheduled" as const
+  });
+  const { toast } = useToast();
 
   const { data: appointments } = useQuery({
     queryKey: ["/api/appointments"],
+  });
+
+  const { data: clients } = useQuery({
+    queryKey: ["/api/clients"],
+  });
+
+  const { data: services } = useQuery({
+    queryKey: ["/api/services"],
+  });
+
+  const createAppointmentMutation = useMutation({
+    mutationFn: (appointment: InsertAppointment) =>
+      apiRequest("POST", "/api/appointments", appointment),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
+      setIsNewAppointmentOpen(false);
+      setNewAppointment({
+        date: format(new Date(), "yyyy-MM-dd"),
+        time: "09:00",
+        clientId: "",
+        serviceId: "",
+        status: "scheduled"
+      });
+      toast({
+        title: "Agendamento criado",
+        description: "Novo agendamento foi criado com sucesso.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível criar o agendamento.",
+        variant: "destructive",
+      });
+    },
   });
 
   const monthStart = startOfMonth(currentDate);
@@ -36,6 +87,31 @@ export default function CalendarSection() {
     });
   };
 
+  const handleCreateAppointment = () => {
+    if (!newAppointment.clientId || !newAppointment.serviceId) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Selecione um cliente e um serviço.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const selectedService = services?.find(s => s.id === newAppointment.serviceId);
+    if (!selectedService) return;
+
+    const appointmentData: InsertAppointment = {
+      date: new Date(`${newAppointment.date}T${newAppointment.time}`),
+      clientId: newAppointment.clientId,
+      serviceId: newAppointment.serviceId,
+      status: newAppointment.status,
+      price: selectedService.price,
+      duration: selectedService.duration
+    };
+
+    createAppointmentMutation.mutate(appointmentData);
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <Card>
@@ -47,10 +123,93 @@ export default function CalendarSection() {
                 <Filter className="w-4 h-4 mr-2" />
                 Filtros
               </Button>
-              <Button className="bg-primary text-white hover:bg-primary/90">
-                <Plus className="w-4 h-4 mr-2" />
-                Novo Agendamento
-              </Button>
+              <Dialog open={isNewAppointmentOpen} onOpenChange={setIsNewAppointmentOpen}>
+                <DialogTrigger asChild>
+                  <Button className="bg-primary text-white hover:bg-primary/90">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Novo Agendamento
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Novo Agendamento</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="date">Data</Label>
+                        <Input
+                          id="date"
+                          type="date"
+                          value={newAppointment.date}
+                          onChange={(e) => setNewAppointment(prev => ({ ...prev, date: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="time">Horário</Label>
+                        <Input
+                          id="time"
+                          type="time"
+                          value={newAppointment.time}
+                          onChange={(e) => setNewAppointment(prev => ({ ...prev, time: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="client">Cliente</Label>
+                      <Select value={newAppointment.clientId} onValueChange={(value) => setNewAppointment(prev => ({ ...prev, clientId: value }))}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um cliente" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {clients?.map((client) => (
+                            <SelectItem key={client.id} value={client.id}>
+                              {client.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="service">Serviço</Label>
+                      <Select value={newAppointment.serviceId} onValueChange={(value) => setNewAppointment(prev => ({ ...prev, serviceId: value }))}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um serviço" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {services?.map((service) => (
+                            <SelectItem key={service.id} value={service.id}>
+                              {service.name} - R$ {service.price}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="status">Status</Label>
+                      <Select value={newAppointment.status} onValueChange={(value: "scheduled" | "confirmed" | "completed" | "cancelled") => setNewAppointment(prev => ({ ...prev, status: value }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="scheduled">Agendado</SelectItem>
+                          <SelectItem value="confirmed">Confirmado</SelectItem>
+                          <SelectItem value="completed">Concluído</SelectItem>
+                          <SelectItem value="cancelled">Cancelado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex justify-end space-x-2 pt-4">
+                      <Button variant="outline" onClick={() => setIsNewAppointmentOpen(false)}>
+                        Cancelar
+                      </Button>
+                      <Button onClick={handleCreateAppointment} disabled={createAppointmentMutation.isPending}>
+                        {createAppointmentMutation.isPending ? "Salvando..." : "Salvar"}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </div>
