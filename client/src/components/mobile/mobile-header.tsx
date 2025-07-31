@@ -69,21 +69,21 @@ export default function MobileHeader({ backgroundColor = "gradient-header" }: Mo
         </div>
 
         {/* Loyalty Progress Section */}
-        <div className="bg-white bg-opacity-15 rounded-2xl p-4 backdrop-blur-sm border border-white border-opacity-20">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-2">
-              <Star className="w-5 h-5 text-yellow-300 fill-current" />
-              <span className="font-semibold text-sm">Programa de Fidelidade</span>
+        <div className="bg-white bg-opacity-15 rounded-xl p-3 backdrop-blur-sm border border-white border-opacity-20">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-1.5">
+              <Star className="w-4 h-4 text-yellow-300 fill-current" />
+              <span className="font-semibold text-xs">Programa de Fidelidade</span>
             </div>
             <div className="text-right">
-              <span className="text-lg font-bold">{clientData.points}</span>
-              <span className="text-sm opacity-90 ml-1">pts</span>
+              <span className="text-base font-bold">{clientData.points}</span>
+              <span className="text-xs opacity-90 ml-1">pts</span>
             </div>
           </div>
           
           {/* Progress Bar */}
           <div className="relative">
-            <div className="w-full bg-white bg-opacity-20 rounded-full h-3 mb-2 overflow-hidden">
+            <div className="w-full bg-white bg-opacity-20 rounded-full h-2 mb-1.5 overflow-hidden">
               <div 
                 className="bg-gradient-to-r from-yellow-300 to-yellow-400 h-full rounded-full transition-all duration-1000 ease-out shadow-inner relative"
                 style={{ width: `${Math.min(progressPercentage, 100)}%` }}
@@ -94,11 +94,11 @@ export default function MobileHeader({ backgroundColor = "gradient-header" }: Mo
             </div>
             
             {/* Progress indicator dots */}
-            <div className="flex justify-between absolute -top-1 left-0 right-0">
+            <div className="flex justify-between absolute -top-0.5 left-0 right-0">
               {[25, 50, 75, 100].map((milestone) => (
                 <div
                   key={milestone}
-                  className={`w-2 h-2 rounded-full transition-colors duration-300 ${
+                  className={`w-1.5 h-1.5 rounded-full transition-colors duration-300 ${
                     progressPercentage >= milestone 
                       ? 'bg-yellow-300 shadow-md' 
                       : 'bg-white bg-opacity-30'
@@ -109,31 +109,31 @@ export default function MobileHeader({ backgroundColor = "gradient-header" }: Mo
           </div>
           
           {/* Progress Text */}
-          <div className="flex items-center justify-between text-xs opacity-90 mt-3">
+          <div className="flex items-center justify-between text-xs opacity-90 mt-2">
             {canRedeem ? (
-              <div className="flex items-center space-x-2">
-                <Gift className="w-4 h-4 text-yellow-300" />
-                <span className="font-semibold text-yellow-300">
+              <div className="flex items-center space-x-1.5">
+                <Gift className="w-3 h-3 text-yellow-300" />
+                <span className="font-semibold text-yellow-300 text-xs">
                   🎉 Você pode resgatar uma recompensa!
                 </span>
               </div>
             ) : (
-              <span>
+              <span className="text-xs">
                 Faltam apenas <span className="font-bold text-yellow-300">{pointsToNextReward} pontos</span> para sua próxima recompensa
               </span>
             )}
-            <span className="text-right">
+            <span className="text-right text-xs">
               Meta: {clientData.nextRewardAt}
             </span>
           </div>
           
           {/* Rewards earned indicator */}
           {clientData.totalRewards > 0 && (
-            <div className="flex items-center space-x-1 mt-2 pt-2 border-t border-white border-opacity-20">
+            <div className="flex items-center space-x-1 mt-1.5 pt-1.5 border-t border-white border-opacity-20">
               <span className="text-xs opacity-75">Recompensas obtidas:</span>
-              <div className="flex space-x-1">
+              <div className="flex space-x-0.5">
                 {Array.from({ length: Math.min(clientData.totalRewards, 5) }, (_, i) => (
-                  <Star key={i} className="w-3 h-3 text-yellow-300 fill-current" />
+                  <Star key={i} className="w-2.5 h-2.5 text-yellow-300 fill-current" />
                 ))}
                 {clientData.totalRewards > 5 && (
                   <span className="text-xs">+{clientData.totalRewards - 5}</span>
