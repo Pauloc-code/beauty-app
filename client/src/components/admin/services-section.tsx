@@ -132,7 +132,8 @@ export default function ServicesSection() {
       duration: parseInt(serviceForm.duration),
       price: parseFloat(serviceForm.price),
       imageUrl: serviceForm.imageUrl || undefined,
-      points: parseInt(serviceForm.points)
+      points: parseInt(serviceForm.points),
+      active: true
     };
 
     if (editingService) {
