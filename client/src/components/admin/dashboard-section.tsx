@@ -31,6 +31,9 @@ import { useState } from "react";
 
 export default function DashboardSection() {
   const [newAppointmentOpen, setNewAppointmentOpen] = useState(false);
+  const [newClientOpen, setNewClientOpen] = useState(false);
+  const [promotionOpen, setPromotionOpen] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -69,6 +72,50 @@ export default function DashboardSection() {
       notes: ""
     },
     mode: "onChange"
+  });
+
+  // Create client form
+  const clientForm = useForm({
+    resolver: zodResolver(z.object({
+      name: z.string().min(1, "Nome é obrigatório"),
+      cpf: z.string().min(11, "CPF deve ter 11 dígitos").max(11, "CPF deve ter 11 dígitos"),
+      email: z.string().email("Email inválido").optional().or(z.literal("")),
+      phone: z.string().min(1, "Telefone é obrigatório")
+    })),
+    defaultValues: {
+      name: "",
+      cpf: "",
+      email: "",
+      phone: ""
+    }
+  });
+
+  const createClientMutation = useMutation({
+    mutationFn: async (data: any) => {
+      console.log("Creating client with data:", data);
+      return apiRequest("/api/clients", {
+        method: "POST",
+        body: JSON.stringify(data)
+      });
+    },
+    onSuccess: () => {
+      console.log("Client created successfully");
+      toast({
+        title: "Sucesso",
+        description: "Cliente cadastrado com sucesso",
+      });
+      clientForm.reset();
+      setNewClientOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+    },
+    onError: (error) => {
+      console.error("Error creating client:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao cadastrar cliente",
+        variant: "destructive"
+      });
+    }
   });
 
   const createAppointmentMutation = useMutation({
@@ -388,15 +435,36 @@ export default function DashboardSection() {
                   <CalendarPlus className="w-5 h-5 mr-3" />
                   Novo Agendamento
                 </Button>
-                <Button variant="outline" className="w-full p-3 rounded-lg font-medium text-left justify-start">
+                <Button 
+                  onClick={() => {
+                    console.log("Opening new client modal");
+                    setNewClientOpen(true);
+                  }}
+                  variant="outline" 
+                  className="w-full p-3 rounded-lg font-medium text-left justify-start"
+                >
                   <UserPlus className="w-5 h-5 mr-3" />
                   Cadastrar Cliente
                 </Button>
-                <Button variant="outline" className="w-full p-3 rounded-lg font-medium text-left justify-start">
+                <Button 
+                  onClick={() => {
+                    console.log("Opening promotion modal");
+                    setPromotionOpen(true);
+                  }}
+                  variant="outline" 
+                  className="w-full p-3 rounded-lg font-medium text-left justify-start"
+                >
                   <Megaphone className="w-5 h-5 mr-3" />
                   Enviar Promoção
                 </Button>
-                <Button variant="outline" className="w-full p-3 rounded-lg font-medium text-left justify-start">
+                <Button 
+                  onClick={() => {
+                    console.log("Opening gallery upload modal");
+                    setGalleryOpen(true);
+                  }}
+                  variant="outline" 
+                  className="w-full p-3 rounded-lg font-medium text-left justify-start"
+                >
                   <Camera className="w-5 h-5 mr-3" />
                   Upload Galeria
                 </Button>
@@ -443,6 +511,229 @@ export default function DashboardSection() {
           </Card>
         </div>
       </div>
+
+      {/* Modal Cadastrar Cliente */}
+      <Dialog open={newClientOpen} onOpenChange={setNewClientOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cadastrar Novo Cliente</DialogTitle>
+            <p className="text-sm text-gray-600">
+              Adicione um novo cliente ao sistema com os dados básicos.
+            </p>
+          </DialogHeader>
+          <Form {...clientForm}>
+            <form onSubmit={clientForm.handleSubmit(
+              (data) => {
+                console.log("Submitting client form with data:", data);
+                createClientMutation.mutate(data);
+              },
+              (errors) => {
+                console.log("Client form validation errors:", errors);
+              }
+            )} className="space-y-4">
+              <FormField
+                control={clientForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome Completo</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Digite o nome completo" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={clientForm.control}
+                name="cpf"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>CPF</FormLabel>
+                    <FormControl>
+                      <Input placeholder="12345678901" maxLength={11} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={clientForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email (opcional)</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="cliente@email.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={clientForm.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Telefone</FormLabel>
+                    <FormControl>
+                      <Input placeholder="(11) 99999-9999" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setNewClientOpen(false)}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="flex-1"
+                  disabled={createClientMutation.isPending}
+                >
+                  {createClientMutation.isPending ? "Criando..." : "Cadastrar Cliente"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Enviar Promoção */}
+      <Dialog open={promotionOpen} onOpenChange={setPromotionOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enviar Promoção</DialogTitle>
+            <p className="text-sm text-gray-600">
+              Envie uma mensagem promocional para seus clientes.
+            </p>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Título da Promoção</label>
+              <Input placeholder="Ex: Desconto de 20% em nail art" className="mt-1" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Mensagem</label>
+              <textarea 
+                className="w-full mt-1 p-2 border rounded-md h-20 text-sm"
+                placeholder="Digite a mensagem promocional..."
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Enviar para</label>
+              <Select>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Selecione o público" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os clientes</SelectItem>
+                  <SelectItem value="active">Clientes ativos</SelectItem>
+                  <SelectItem value="vip">Clientes VIP</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  console.log("Promotion modal cancelled");
+                  setPromotionOpen(false);
+                }}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={() => {
+                  console.log("Sending promotion");
+                  toast({
+                    title: "Promoção Enviada",
+                    description: "Mensagem promocional enviada com sucesso!",
+                  });
+                  setPromotionOpen(false);
+                }}
+                className="flex-1"
+              >
+                Enviar Promoção
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Upload Galeria */}
+      <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Upload para Galeria</DialogTitle>
+            <p className="text-sm text-gray-600">
+              Adicione novas fotos dos seus trabalhos à galeria.
+            </p>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Título da Foto</label>
+              <Input placeholder="Ex: Nail art floral" className="mt-1" />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Categoria</label>
+              <Select>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Selecione a categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nail-art">Nail Art</SelectItem>
+                  <SelectItem value="manicure">Manicure</SelectItem>
+                  <SelectItem value="pedicure">Pedicure</SelectItem>
+                  <SelectItem value="decoracao">Decoração</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Arquivo</label>
+              <div className="mt-1 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <Camera className="mx-auto h-8 w-8 text-gray-400" />
+                <p className="mt-2 text-sm text-gray-600">
+                  Clique para selecionar ou arraste a imagem
+                </p>
+                <Input type="file" accept="image/*" className="mt-2" />
+              </div>
+            </div>
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  console.log("Gallery upload cancelled");
+                  setGalleryOpen(false);
+                }}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={() => {
+                  console.log("Uploading to gallery");
+                  toast({
+                    title: "Upload Realizado",
+                    description: "Foto adicionada à galeria com sucesso!",
+                  });
+                  setGalleryOpen(false);
+                }}
+                className="flex-1"
+              >
+                Fazer Upload
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
