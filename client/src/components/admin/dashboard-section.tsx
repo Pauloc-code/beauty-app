@@ -1,6 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertAppointmentSchema } from "@shared/schema";
+import { z } from "zod";
+import { apiRequest } from "@/lib/queryClient";
 import StatsCard from "@/components/ui/stats-card";
 import { 
   Calendar, 
@@ -17,14 +27,69 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useState } from "react";
 
 export default function DashboardSection() {
+  const [newAppointmentOpen, setNewAppointmentOpen] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["/api/stats/today"],
   });
 
   const { data: todayAppointments, isLoading: appointmentsLoading } = useQuery({
     queryKey: ["/api/appointments", { date: new Date().toISOString().split('T')[0] }],
+  });
+
+  const { data: clients = [] } = useQuery({
+    queryKey: ["/api/clients"],
+  });
+
+  const { data: services = [] } = useQuery({
+    queryKey: ["/api/services"],
+  });
+
+  const appointmentForm = useForm({
+    resolver: zodResolver(insertAppointmentSchema.extend({
+      time: z.string().min(1, "Horário é obrigatório")
+    })),
+    defaultValues: {
+      clientId: "",
+      serviceId: "",
+      date: new Date().toISOString().split('T')[0],
+      time: "",
+      status: "agendado",
+      notes: ""
+    }
+  });
+
+  const createAppointmentMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const appointmentData = {
+        ...data,
+        date: `${data.date}T${data.time}:00.000Z`
+      };
+      delete appointmentData.time;
+      return apiRequest("POST", "/api/appointments", appointmentData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/today"] });
+      setNewAppointmentOpen(false);
+      appointmentForm.reset();
+      toast({
+        title: "Sucesso",
+        description: "Agendamento criado com sucesso!"
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao criar agendamento",
+        variant: "destructive"
+      });
+    }
   });
 
   return (
@@ -79,10 +144,128 @@ export default function DashboardSection() {
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">Agenda de Hoje</h3>
-                <Button className="bg-primary text-white hover:bg-primary/90">
-                  <CalendarPlus className="w-4 h-4 mr-2" />
-                  Novo Agendamento
-                </Button>
+                <Dialog open={newAppointmentOpen} onOpenChange={setNewAppointmentOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="bg-primary text-white hover:bg-primary/90">
+                      <CalendarPlus className="w-4 h-4 mr-2" />
+                      Novo Agendamento
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Novo Agendamento</DialogTitle>
+                    </DialogHeader>
+                    <Form {...appointmentForm}>
+                      <form onSubmit={appointmentForm.handleSubmit((data) => createAppointmentMutation.mutate(data))} className="space-y-4">
+                        <FormField
+                          control={appointmentForm.control}
+                          name="clientId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Cliente</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione um cliente" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {clients.map((client: any) => (
+                                    <SelectItem key={client.id} value={client.id}>
+                                      {client.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={appointmentForm.control}
+                          name="serviceId"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Serviço</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione um serviço" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {services.map((service: any) => (
+                                    <SelectItem key={service.id} value={service.id}>
+                                      {service.name} - R$ {parseFloat(service.price).toFixed(2).replace('.', ',')}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )}
+                        />
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={appointmentForm.control}
+                            name="date"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Data</FormLabel>
+                                <FormControl>
+                                  <Input type="date" {...field} />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={appointmentForm.control}
+                            name="time"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Horário</FormLabel>
+                                <FormControl>
+                                  <Input type="time" {...field} />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <FormField
+                          control={appointmentForm.control}
+                          name="notes"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Observações</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Observações (opcional)" {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+
+                        <div className="flex justify-end space-x-2 pt-4">
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={() => setNewAppointmentOpen(false)}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button 
+                            type="submit" 
+                            disabled={createAppointmentMutation.isPending}
+                            className="bg-primary text-white hover:bg-primary/90"
+                          >
+                            {createAppointmentMutation.isPending ? "Criando..." : "Criar Agendamento"}
+                          </Button>
+                        </div>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
             <CardContent className="p-6">
@@ -157,7 +340,10 @@ export default function DashboardSection() {
             <CardContent className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Ações Rápidas</h3>
               <div className="space-y-3">
-                <Button className="w-full bg-primary text-white p-3 rounded-lg font-medium text-left justify-start hover:bg-primary/90">
+                <Button 
+                  onClick={() => setNewAppointmentOpen(true)}
+                  className="w-full bg-primary text-white p-3 rounded-lg font-medium text-left justify-start hover:bg-primary/90"
+                >
                   <CalendarPlus className="w-5 h-5 mr-3" />
                   Novo Agendamento
                 </Button>
