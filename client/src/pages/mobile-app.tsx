@@ -21,7 +21,7 @@ export default function MobileApp() {
   const renderSection = () => {
     switch (activeSection) {
       case "home":
-        return <HomeSection />;
+        return <HomeSection onSectionChange={setActiveSection} />;
       case "services":
         return <ServicesSection />;
       case "loyalty":

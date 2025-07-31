@@ -7,7 +7,11 @@ import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { AppointmentWithDetails, GalleryImage } from "@shared/schema";
 
-export default function HomeSection() {
+interface HomeSectionProps {
+  onSectionChange?: (section: string) => void;
+}
+
+export default function HomeSection({ onSectionChange }: HomeSectionProps) {
   
   const { data: todayAppointments, isLoading } = useQuery({
     queryKey: ["/api/appointments", { date: new Date().toISOString().split('T')[0] }],
@@ -151,8 +155,7 @@ export default function HomeSection() {
               <Button 
                 className="bg-primary text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-primary/90 transform transition-all duration-200 hover:scale-105"
                 onClick={() => {
-                  // Aqui você pode adicionar a lógica para mostrar detalhes do agendamento
-                  console.log('Mostrar detalhes do agendamento:', nextAppointment);
+                  onSectionChange?.('appointments');
                 }}
               >
                 Ver Detalhes
