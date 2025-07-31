@@ -203,22 +203,7 @@ export default function ServicesSection() {
         ))}
       </div>
 
-      {selectedService && (
-        <div className="fixed bottom-4 left-4 right-4 z-50">
-          <Button 
-            className="w-full text-white py-4 rounded-2xl font-semibold text-lg shadow-2xl transform transition-all duration-300 hover:scale-[1.02]"
-            style={{ backgroundColor: 'var(--primary-color)' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--primary-color)90';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--primary-color)';
-            }}
-          >
-            Agendar Serviço Selecionado
-          </Button>
-        </div>
-      )}
+
 
       {servicesToShow.length === 0 && (
         <div className="text-center py-12">
