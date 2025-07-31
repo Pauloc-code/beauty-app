@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -51,8 +51,14 @@ export default function DashboardSection() {
   });
 
   const appointmentForm = useForm({
-    resolver: zodResolver(insertAppointmentSchema.extend({
-      time: z.string().min(1, "Horário é obrigatório")
+    resolver: zodResolver(z.object({
+      clientId: z.string().min(1, "Cliente é obrigatório"),
+      serviceId: z.string().min(1, "Serviço é obrigatório"),
+      date: z.string().min(1, "Data é obrigatória"),
+      time: z.string().min(1, "Horário é obrigatório"),
+      notes: z.string().optional(),
+      price: z.string().optional(),
+      status: z.string().optional()
     })),
     defaultValues: {
       clientId: "",
@@ -61,7 +67,8 @@ export default function DashboardSection() {
       time: "",
       status: "scheduled",
       notes: ""
-    }
+    },
+    mode: "onChange"
   });
 
   const createAppointmentMutation = useMutation({
@@ -77,7 +84,7 @@ export default function DashboardSection() {
       const appointmentData = {
         clientId: data.clientId,
         serviceId: data.serviceId,
-        date: `${data.date}T${data.time}:00.000Z`,
+        date: new Date(`${data.date}T${data.time}:00.000Z`),
         status: data.status || "scheduled",
         price: selectedService.price,
         notes: data.notes || ""
@@ -173,10 +180,20 @@ export default function DashboardSection() {
                       </p>
                     </DialogHeader>
                     <Form {...appointmentForm}>
-                      <form onSubmit={appointmentForm.handleSubmit((data) => {
-                        console.log("Submitting form with data:", data);
-                        createAppointmentMutation.mutate(data);
-                      })} className="space-y-4">
+                      <form onSubmit={appointmentForm.handleSubmit(
+                        (data) => {
+                          console.log("Submitting form with data:", data);
+                          createAppointmentMutation.mutate(data);
+                        },
+                        (errors) => {
+                          console.log("Form validation errors:", errors);
+                          toast({
+                            title: "Erro de validação",
+                            description: "Preencha todos os campos obrigatórios",
+                            variant: "destructive"
+                          });
+                        }
+                      )} className="space-y-4">
                         <FormField
                           control={appointmentForm.control}
                           name="clientId"
@@ -197,6 +214,7 @@ export default function DashboardSection() {
                                   ))}
                                 </SelectContent>
                               </Select>
+                              <FormMessage />
                             </FormItem>
                           )}
                         />
@@ -221,6 +239,7 @@ export default function DashboardSection() {
                                   ))}
                                 </SelectContent>
                               </Select>
+                              <FormMessage />
                             </FormItem>
                           )}
                         />
@@ -235,6 +254,7 @@ export default function DashboardSection() {
                                 <FormControl>
                                   <Input type="date" {...field} />
                                 </FormControl>
+                                <FormMessage />
                               </FormItem>
                             )}
                           />
@@ -248,6 +268,7 @@ export default function DashboardSection() {
                                 <FormControl>
                                   <Input type="time" {...field} />
                                 </FormControl>
+                                <FormMessage />
                               </FormItem>
                             )}
                           />
