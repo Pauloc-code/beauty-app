@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, Filter, Plus } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, startOfWeek, endOfWeek, addDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -86,6 +86,28 @@ export default function CalendarSection() {
       return newDate;
     });
   };
+
+  const navigateWeek = (direction: "prev" | "next") => {
+    const days = direction === "prev" ? -7 : 7;
+    setCurrentDate(addDays(currentDate, days));
+  };
+
+  const navigateDay = (direction: "prev" | "next") => {
+    const days = direction === "prev" ? -1 : 1;
+    setCurrentDate(addDays(currentDate, days));
+  };
+
+  const getWeekDays = () => {
+    const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
+    return eachDayOfInterval({
+      start: weekStart,
+      end: endOfWeek(currentDate, { weekStartsOn: 0 })
+    });
+  };
+
+  const getHourSlots = () => {
+    return Array.from({ length: 12 }, (_, i) => i + 8); // 8h às 19h
+  };;
 
   const handleCreateAppointment = () => {
     if (!newAppointment.clientId || !newAppointment.serviceId) {
@@ -221,17 +243,27 @@ export default function CalendarSection() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigateMonth("prev")}
+                onClick={() => {
+                  if (viewMode === "month") navigateMonth("prev");
+                  else if (viewMode === "week") navigateWeek("prev");
+                  else navigateDay("prev");
+                }}
               >
                 <ChevronLeft className="w-4 h-4" />
               </Button>
               <h3 className="text-lg font-semibold text-gray-900">
-                {format(currentDate, "MMMM yyyy", { locale: ptBR })}
+                {viewMode === "month" && format(currentDate, "MMMM yyyy", { locale: ptBR })}
+                {viewMode === "week" && `Semana de ${format(startOfWeek(currentDate), "dd/MM", { locale: ptBR })} - ${format(endOfWeek(currentDate), "dd/MM/yyyy", { locale: ptBR })}`}
+                {viewMode === "day" && format(currentDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
               </h3>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigateMonth("next")}
+                onClick={() => {
+                  if (viewMode === "month") navigateMonth("next");
+                  else if (viewMode === "week") navigateWeek("next");
+                  else navigateDay("next");
+                }}
               >
                 <ChevronRight className="w-4 h-4" />
               </Button>
@@ -318,12 +350,110 @@ export default function CalendarSection() {
             </div>
           )}
 
-          {viewMode !== "month" && (
-            <div className="bg-gray-50 rounded-lg p-8 text-center">
-              <p className="text-gray-600 mb-2">Visualização de {viewMode === "week" ? "semana" : "dia"}</p>
-              <p className="text-sm text-gray-500">
-                Esta visualização será implementada em uma versão futura
-              </p>
+          {/* Week View */}
+          {viewMode === "week" && (
+            <div className="bg-white rounded-lg border border-gray-200">
+              {/* Week header */}
+              <div className="grid grid-cols-8 border-b border-gray-200">
+                <div className="p-3 border-r border-gray-200"></div>
+                {getWeekDays().map((day) => (
+                  <div key={day.toISOString()} className="p-3 text-center border-r border-gray-200 last:border-r-0">
+                    <div className="text-sm font-medium text-gray-900">
+                      {format(day, "EEE", { locale: ptBR })}
+                    </div>
+                    <div className={`text-lg font-bold ${
+                      isSameDay(day, new Date()) ? "text-primary" : "text-gray-600"
+                    }`}>
+                      {format(day, "d")}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Time slots */}
+              <div className="max-h-96 overflow-y-auto">
+                {getHourSlots().map((hour) => (
+                  <div key={hour} className="grid grid-cols-8 border-b border-gray-100 last:border-b-0">
+                    <div className="p-3 border-r border-gray-200 text-sm text-gray-500 font-medium">
+                      {hour.toString().padStart(2, '0')}:00
+                    </div>
+                    {getWeekDays().map((day) => {
+                      const dayAppointments = getAppointmentsForDay(day).filter(apt => {
+                        const aptHour = new Date(apt.date).getHours();
+                        return aptHour === hour;
+                      });
+                      
+                      return (
+                        <div key={`${day.toISOString()}-${hour}`} className="p-2 border-r border-gray-200 last:border-r-0 min-h-[60px]">
+                          {dayAppointments.map((appointment) => (
+                            <div
+                              key={appointment.id}
+                              className="bg-primary text-white text-xs px-2 py-1 rounded mb-1 truncate"
+                              title={`${format(new Date(appointment.date), "HH:mm")} - ${appointment.client.name}`}
+                            >
+                              {format(new Date(appointment.date), "HH:mm")} {appointment.client.name}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Day View */}
+          {viewMode === "day" && (
+            <div className="bg-white rounded-lg border border-gray-200">
+              <div className="p-4 border-b border-gray-200">
+                <h4 className="text-lg font-semibold text-gray-900">
+                  {format(currentDate, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+                </h4>
+              </div>
+              
+              <div className="max-h-96 overflow-y-auto">
+                {getHourSlots().map((hour) => {
+                  const hourAppointments = getAppointmentsForDay(currentDate).filter(apt => {
+                    const aptHour = new Date(apt.date).getHours();
+                    return aptHour === hour;
+                  });
+                  
+                  return (
+                    <div key={hour} className="flex border-b border-gray-100 last:border-b-0">
+                      <div className="w-20 p-4 border-r border-gray-200 text-sm text-gray-500 font-medium">
+                        {hour.toString().padStart(2, '0')}:00
+                      </div>
+                      <div className="flex-1 p-4 min-h-[80px]">
+                        {hourAppointments.length === 0 ? (
+                          <div className="text-gray-400 text-sm">Horário disponível</div>
+                        ) : (
+                          <div className="space-y-2">
+                            {hourAppointments.map((appointment) => (
+                              <div
+                                key={appointment.id}
+                                className="bg-primary text-white p-3 rounded-lg"
+                              >
+                                <div className="font-medium">
+                                  {format(new Date(appointment.date), "HH:mm")} - {appointment.client.name}
+                                </div>
+                                <div className="text-sm opacity-90">
+                                  {appointment.service.name} - R$ {appointment.service.price}
+                                </div>
+                                <div className="text-xs opacity-75 mt-1">
+                                  Status: {appointment.status === "scheduled" ? "Agendado" : 
+                                          appointment.status === "completed" ? "Concluído" : 
+                                          appointment.status === "cancelled" ? "Cancelado" : appointment.status}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </CardContent>
