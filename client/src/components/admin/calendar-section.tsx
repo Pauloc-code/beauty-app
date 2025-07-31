@@ -77,21 +77,33 @@ export default function CalendarSection() {
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
   const getAppointmentsForDay = (date: Date) => {
-    let filteredAppointments = appointments?.filter(app => 
+    if (!appointments || !Array.isArray(appointments)) {
+      return [];
+    }
+
+    let filteredAppointments = appointments.filter((app: any) => 
       isSameDay(new Date(app.date), date)
-    ) || [];
+    );
+
+    // Debug: log filtros aplicados
+    console.log("Filtros ativos:", filters);
+    console.log("Agendamentos antes dos filtros:", filteredAppointments.length);
 
     // Aplicar filtros
     if (filters.status !== "all") {
-      filteredAppointments = filteredAppointments.filter(app => app.status === filters.status);
+      filteredAppointments = filteredAppointments.filter((app: any) => app.status === filters.status);
+      console.log(`Após filtro status '${filters.status}':`, filteredAppointments.length);
     }
     if (filters.service !== "all") {
-      filteredAppointments = filteredAppointments.filter(app => app.serviceId === filters.service);
+      filteredAppointments = filteredAppointments.filter((app: any) => app.serviceId === filters.service);
+      console.log(`Após filtro serviço '${filters.service}':`, filteredAppointments.length);
     }
     if (filters.client !== "all") {
-      filteredAppointments = filteredAppointments.filter(app => app.clientId === filters.client);
+      filteredAppointments = filteredAppointments.filter((app: any) => app.clientId === filters.client);
+      console.log(`Após filtro cliente '${filters.client}':`, filteredAppointments.length);
     }
 
+    console.log("Agendamentos finais:", filteredAppointments.length);
     return filteredAppointments;
   };
 
@@ -223,10 +235,14 @@ export default function CalendarSection() {
                     <div className="flex justify-end space-x-2 pt-4">
                       <Button variant="outline" onClick={() => {
                         setFilters({ status: "all", service: "all", client: "all" });
+                        console.log("Filtros limpos");
                       }}>
                         Limpar Filtros
                       </Button>
-                      <Button onClick={() => setIsFilterOpen(false)}>
+                      <Button onClick={() => {
+                        console.log("Aplicando filtros:", filters);
+                        setIsFilterOpen(false);
+                      }}>
                         Aplicar
                       </Button>
                     </div>
