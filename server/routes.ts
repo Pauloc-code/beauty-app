@@ -256,6 +256,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Settings routes
+  app.get("/api/settings", async (req, res) => {
+    try {
+      const settings = await storage.getSystemSettings();
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch system settings" });
+    }
+  });
+
+  app.post("/api/settings/bulk", async (req, res) => {
+    try {
+      const settingsArray = req.body as { key: string; value: string }[];
+      for (const setting of settingsArray) {
+        await storage.upsertSystemSetting(setting.key, setting.value);
+      }
+      res.json({ message: "Settings updated successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update settings" });
+    }
+  });
+
+  app.get("/api/settings/:key", async (req, res) => {
+    try {
+      const setting = await storage.getSystemSetting(req.params.key);
+      res.json(setting);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch setting" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { useSystemSettings } from "@/hooks/use-system-settings";
 import MobileHeader from "@/components/mobile/mobile-header";
 import MobileNavigation from "@/components/mobile/mobile-navigation";
 import HomeSection from "@/components/mobile/home-section";
@@ -11,6 +12,9 @@ import AppointmentsSection from "@/components/mobile/appointments-section";
 export default function MobileApp() {
   const [, setLocation] = useLocation();
   const [activeSection, setActiveSection] = useState("home");
+  
+  // Load system settings to apply custom colors
+  useSystemSettings();
 
   const renderSection = () => {
     switch (activeSection) {

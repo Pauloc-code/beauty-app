@@ -11,6 +11,7 @@ export default function AdminNavigation({ activeSection, onSectionChange }: Admi
     { id: "services", label: "Serviços" },
     { id: "gallery", label: "Galeria" },
     { id: "financial", label: "Financeiro" },
+    { id: "settings", label: "Configurações" },
   ];
 
   return (

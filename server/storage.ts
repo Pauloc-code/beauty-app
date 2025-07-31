@@ -12,12 +12,15 @@ import {
   type InsertGalleryImage,
   type Transaction,
   type InsertTransaction,
+  type SystemSettings,
+  type InsertSystemSettings,
   users,
   clients,
   services,
   appointments,
   galleryImages,
-  transactions
+  transactions,
+  systemSettings
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lte } from "drizzle-orm";
@@ -69,6 +72,11 @@ export interface IStorage {
     newClients: number;
     occupancyRate: number;
   }>;
+
+  // System Settings methods
+  getSystemSettings(): Promise<SystemSettings[]>;
+  getSystemSetting(key: string): Promise<SystemSettings | undefined>;
+  upsertSystemSetting(key: string, value: string): Promise<SystemSettings>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -321,6 +329,37 @@ export class DatabaseStorage implements IStorage {
       newClients,
       occupancyRate: Math.min(occupancyRate, 100)
     };
+  }
+
+  async getSystemSettings(): Promise<SystemSettings[]> {
+    return await db.select().from(systemSettings);
+  }
+
+  async getSystemSetting(key: string): Promise<SystemSettings | undefined> {
+    const [setting] = await db
+      .select()
+      .from(systemSettings)
+      .where(eq(systemSettings.key, key));
+    return setting;
+  }
+
+  async upsertSystemSetting(key: string, value: string): Promise<SystemSettings> {
+    const existing = await this.getSystemSetting(key);
+    
+    if (existing) {
+      const [updated] = await db
+        .update(systemSettings)
+        .set({ value, updatedAt: new Date() })
+        .where(eq(systemSettings.key, key))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(systemSettings)
+        .values({ key, value })
+        .returning();
+      return created;
+    }
   }
 }
 
