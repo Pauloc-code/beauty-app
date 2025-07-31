@@ -53,6 +53,22 @@ export default function DashboardSection() {
     queryKey: ["/api/services"],
   });
 
+  // Gallery form
+  const galleryForm = useForm({
+    resolver: zodResolver(z.object({
+      title: z.string().min(1, "Título é obrigatório"),
+      category: z.string().min(1, "Categoria é obrigatória"),
+      description: z.string().optional(),
+      url: z.string().min(1, "URL da imagem é obrigatória")
+    })),
+    defaultValues: {
+      title: "",
+      category: "",
+      description: "",
+      url: ""
+    }
+  });
+
   const appointmentForm = useForm({
     resolver: zodResolver(z.object({
       clientId: z.string().min(1, "Cliente é obrigatório"),
@@ -113,6 +129,32 @@ export default function DashboardSection() {
       toast({
         title: "Erro",
         description: error.message || "Erro ao cadastrar cliente",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const createGalleryImageMutation = useMutation({
+    mutationFn: async (data: any) => {
+      console.log("Creating gallery image with data:", data);
+      const response = await apiRequest("POST", "/api/gallery", data);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      console.log("Gallery image created successfully:", data);
+      toast({
+        title: "Sucesso",
+        description: "Foto adicionada à galeria com sucesso",
+      });
+      galleryForm.reset();
+      setGalleryOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/gallery"] });
+    },
+    onError: (error) => {
+      console.error("Error creating gallery image:", error);
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao adicionar foto à galeria",
         variant: "destructive"
       });
     }
@@ -694,61 +736,104 @@ export default function DashboardSection() {
               Adicione novas fotos dos seus trabalhos à galeria.
             </p>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Título da Foto</label>
-              <Input placeholder="Ex: Nail art floral" className="mt-1" />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Categoria</label>
-              <Select>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Selecione a categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="nail-art">Nail Art</SelectItem>
-                  <SelectItem value="manicure">Manicure</SelectItem>
-                  <SelectItem value="pedicure">Pedicure</SelectItem>
-                  <SelectItem value="decoracao">Decoração</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Arquivo</label>
-              <div className="mt-1 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                <Camera className="mx-auto h-8 w-8 text-gray-400" />
-                <p className="mt-2 text-sm text-gray-600">
-                  Clique para selecionar ou arraste a imagem
-                </p>
-                <Input type="file" accept="image/*" className="mt-2" />
+          <Form {...galleryForm}>
+            <form onSubmit={galleryForm.handleSubmit(
+              (data) => {
+                console.log("Submitting gallery form with data:", data);
+                createGalleryImageMutation.mutate(data);
+              },
+              (errors) => {
+                console.log("Gallery form validation errors:", errors);
+              }
+            )} className="space-y-4">
+              <FormField
+                control={galleryForm.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Título da Foto</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ex: Nail art floral" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={galleryForm.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Categoria</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a categoria" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="nail-art">Nail Art</SelectItem>
+                        <SelectItem value="manicure">Manicure</SelectItem>
+                        <SelectItem value="pedicure">Pedicure</SelectItem>
+                        <SelectItem value="decoracao">Decoração</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={galleryForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Descrição (opcional)</FormLabel>
+                    <FormControl>
+                      <textarea 
+                        className="w-full mt-1 p-2 border rounded-md h-16 text-sm resize-none"
+                        placeholder="Descrição da foto..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={galleryForm.control}
+                name="url"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>URL da Imagem</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://exemplo.com/imagem.jpg" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    <p className="text-xs text-gray-500">
+                      Cole aqui o link da imagem hospedada online
+                    </p>
+                  </FormItem>
+                )}
+              />
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setGalleryOpen(false)}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="flex-1"
+                  disabled={createGalleryImageMutation.isPending}
+                >
+                  {createGalleryImageMutation.isPending ? "Adicionando..." : "Adicionar à Galeria"}
+                </Button>
               </div>
-            </div>
-            <div className="flex gap-3 pt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  console.log("Gallery upload cancelled");
-                  setGalleryOpen(false);
-                }}
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-              <Button 
-                onClick={() => {
-                  console.log("Uploading to gallery");
-                  toast({
-                    title: "Upload Realizado",
-                    description: "Foto adicionada à galeria com sucesso!",
-                  });
-                  setGalleryOpen(false);
-                }}
-                className="flex-1"
-              >
-                Fazer Upload
-              </Button>
-            </div>
-          </div>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>
