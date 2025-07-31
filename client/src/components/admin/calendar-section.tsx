@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Filter, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, Plus, Settings, Pause, Play } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, startOfWeek, endOfWeek, addDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -17,6 +17,13 @@ export default function CalendarSection() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"month" | "week" | "day">("month");
   const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [filters, setFilters] = useState({
+    status: "all",
+    service: "all",
+    client: "all"
+  });
   const [newAppointment, setNewAppointment] = useState({
     date: format(new Date(), "yyyy-MM-dd"),
     time: "09:00",
@@ -70,9 +77,22 @@ export default function CalendarSection() {
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
   const getAppointmentsForDay = (date: Date) => {
-    return appointments?.filter(app => 
+    let filteredAppointments = appointments?.filter(app => 
       isSameDay(new Date(app.date), date)
     ) || [];
+
+    // Aplicar filtros
+    if (filters.status !== "all") {
+      filteredAppointments = filteredAppointments.filter(app => app.status === filters.status);
+    }
+    if (filters.service !== "all") {
+      filteredAppointments = filteredAppointments.filter(app => app.serviceId === filters.service);
+    }
+    if (filters.client !== "all") {
+      filteredAppointments = filteredAppointments.filter(app => app.clientId === filters.client);
+    }
+
+    return filteredAppointments;
   };
 
   const navigateMonth = (direction: "prev" | "next") => {
@@ -141,10 +161,158 @@ export default function CalendarSection() {
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900">Gestão da Agenda</h2>
             <div className="flex space-x-3">
-              <Button variant="outline">
-                <Filter className="w-4 h-4 mr-2" />
-                Filtros
-              </Button>
+              <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Filter className="w-4 h-4 mr-2" />
+                    Filtros
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Filtros da Agenda</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div>
+                      <Label>Status do Agendamento</Label>
+                      <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos os status</SelectItem>
+                          <SelectItem value="scheduled">Agendado</SelectItem>
+                          <SelectItem value="confirmed">Confirmado</SelectItem>
+                          <SelectItem value="completed">Concluído</SelectItem>
+                          <SelectItem value="cancelled">Cancelado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Serviço</Label>
+                      <Select value={filters.service} onValueChange={(value) => setFilters(prev => ({ ...prev, service: value }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos os serviços</SelectItem>
+                          {services?.map((service) => (
+                            <SelectItem key={service.id} value={service.id}>
+                              {service.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Cliente</Label>
+                      <Select value={filters.client} onValueChange={(value) => setFilters(prev => ({ ...prev, client: value }))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos os clientes</SelectItem>
+                          {clients?.map((client) => (
+                            <SelectItem key={client.id} value={client.id}>
+                              {client.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex justify-end space-x-2 pt-4">
+                      <Button variant="outline" onClick={() => {
+                        setFilters({ status: "all", service: "all", client: "all" });
+                      }}>
+                        Limpar Filtros
+                      </Button>
+                      <Button onClick={() => setIsFilterOpen(false)}>
+                        Aplicar
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              
+              <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Configurações
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Configurações da Agenda</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-6 py-4">
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-medium text-gray-900">Horários de Funcionamento</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Horário de Abertura</Label>
+                          <Input type="time" defaultValue="08:00" />
+                        </div>
+                        <div>
+                          <Label>Horário de Fechamento</Label>
+                          <Input type="time" defaultValue="18:00" />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-medium text-gray-900">Dias de Funcionamento</h4>
+                      <div className="space-y-2">
+                        {["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"].map((day, index) => (
+                          <div key={day} className="flex items-center justify-between">
+                            <Label>{day}</Label>
+                            <input type="checkbox" defaultChecked={index < 6} className="h-4 w-4 text-primary" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-medium text-gray-900">Pausar Agenda</h4>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div>
+                            <div className="text-sm font-medium">Status da Agenda</div>
+                            <div className="text-xs text-gray-500">Pausar temporariamente para viagens ou outros motivos</div>
+                          </div>
+                          <Button variant="outline" size="sm">
+                            <Pause className="w-4 h-4 mr-2" />
+                            Pausar
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label>Data de Início da Pausa</Label>
+                            <Input type="date" />
+                          </div>
+                          <div>
+                            <Label>Data de Retorno</Label>
+                            <Input type="date" />
+                          </div>
+                        </div>
+                        <div>
+                          <Label>Motivo da Pausa (Opcional)</Label>
+                          <Input placeholder="Ex: Viagem, férias, etc..." />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-end space-x-2 pt-4">
+                      <Button variant="outline" onClick={() => setIsSettingsOpen(false)}>
+                        Cancelar
+                      </Button>
+                      <Button onClick={() => setIsSettingsOpen(false)}>
+                        Salvar Configurações
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
               <Dialog open={isNewAppointmentOpen} onOpenChange={setIsNewAppointmentOpen}>
                 <DialogTrigger asChild>
                   <Button className="bg-primary text-white hover:bg-primary/90">
