@@ -267,18 +267,18 @@ export default function AppointmentsSection() {
 
 
                 <div className="flex items-center justify-between">
-                  <div className="text-xl font-bold text-primary">
+                  <div className="text-lg font-bold text-primary">
                     R$ {parseFloat(appointment.price).toFixed(2).replace('.', ',')}
                   </div>
                   
-                  <div className="flex space-x-2">
+                  <div className="flex gap-2">
                     {canModifyAppointment(new Date(appointment.date)) ? (
                       <>
                         <Dialog open={rescheduleDialog === appointment.id} onOpenChange={(open) => setRescheduleDialog(open ? appointment.id : null)}>
                           <DialogTrigger asChild>
                             <Button 
                               variant="outline" 
-                              className="px-4 py-2 rounded-xl text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all duration-300"
+                              className="px-3 py-1.5 rounded-xl text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all duration-300 min-w-[80px]"
                             >
                               <CalendarDays className="w-3 h-3 mr-1" />
                               Reagendar
@@ -343,7 +343,7 @@ export default function AppointmentsSection() {
                           <AlertDialogTrigger asChild>
                             <Button 
                               variant="outline" 
-                              className="px-4 py-2 rounded-xl text-xs font-medium bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+                              className="px-3 py-1.5 rounded-xl text-xs font-medium bg-red-50 text-red-600 border-red-200 hover:bg-red-100 min-w-[80px]"
                             >
                               <X className="w-3 h-3 mr-1" />
                               Cancelar
