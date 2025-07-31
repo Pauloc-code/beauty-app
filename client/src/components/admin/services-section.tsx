@@ -136,8 +136,6 @@ export default function ServicesSection() {
       active: true
     };
 
-    console.log('Dados do serviço a serem enviados:', serviceData);
-
     if (editingService) {
       updateServiceMutation.mutate({ id: editingService.id, service: serviceData });
     } else {
