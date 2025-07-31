@@ -7,7 +7,7 @@ export default function AdminHeader() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
           <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold text-gray-900">BeautyApp Admin</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Painel Administrativo</h1>
             <Badge className="bg-primary text-white">Pro</Badge>
           </div>
           <div className="flex items-center space-x-4">
