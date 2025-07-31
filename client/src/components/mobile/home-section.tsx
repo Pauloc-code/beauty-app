@@ -98,11 +98,6 @@ export default function HomeSection() {
 
   return (
     <div className="p-4 space-y-6">
-      {/* Welcome Header */}
-      <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-1">Olá, Maria! 👋</h2>
-        <p className="text-gray-600">Que tal cuidar das suas unhas hoje?</p>
-      </div>
 
 
 

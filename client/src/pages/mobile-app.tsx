@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useSystemSettings } from "@/hooks/use-system-settings";
+import MobileHeader from "@/components/mobile/mobile-header";
 
 import MobileNavigation from "@/components/mobile/mobile-navigation";
 import HomeSection from "@/components/mobile/home-section";
@@ -56,6 +57,7 @@ export default function MobileApp() {
 
       {/* Mobile App Container */}
       <div className="mobile-container">
+        <MobileHeader />
         <MobileNavigation activeSection={activeSection} onSectionChange={setActiveSection} />
         {renderSection()}
       </div>
