@@ -112,7 +112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/services/:id", async (req, res) => {
+  app.patch("/api/services/:id", async (req, res) => {
     try {
       const serviceData = insertServiceSchema.partial().parse(req.body);
       const service = await storage.updateService(req.params.id, serviceData);

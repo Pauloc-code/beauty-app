@@ -127,14 +127,16 @@ export default function ServicesSection() {
     }
 
     const serviceData: InsertService = {
-      name: serviceForm.name,
-      description: serviceForm.description || undefined,
+      name: serviceForm.name.trim(),
+      description: serviceForm.description?.trim() || undefined,
       duration: parseInt(serviceForm.duration),
-      price: parseFloat(serviceForm.price),
-      imageUrl: serviceForm.imageUrl || undefined,
+      price: serviceForm.price,
+      imageUrl: serviceForm.imageUrl?.trim() || undefined,
       points: parseInt(serviceForm.points),
       active: true
     };
+
+    console.log('Dados do serviço a serem enviados:', serviceData);
 
     if (editingService) {
       updateServiceMutation.mutate({ id: editingService.id, service: serviceData });
