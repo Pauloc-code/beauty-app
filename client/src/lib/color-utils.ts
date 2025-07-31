@@ -8,7 +8,10 @@ export function applyColorSettings(settings: SystemSettings[] | undefined) {
     app_primary_color: "#e91e63",
     app_accent_color: "#f06292",
     app_gradient_start: "#e91e63",
-    app_gradient_end: "#f06292"
+    app_gradient_end: "#f06292",
+    app_selection_color: "#e91e63",
+    app_header_bg_color: "#f8f9fa",
+    app_border_color: "#e91e63"
   };
 
   // Buscar configurações salvas ou usar padrões
@@ -16,12 +19,18 @@ export function applyColorSettings(settings: SystemSettings[] | undefined) {
   const accentColor = settings?.find(s => s.key === "app_accent_color")?.value || defaultColors.app_accent_color;
   const gradientStart = settings?.find(s => s.key === "app_gradient_start")?.value || defaultColors.app_gradient_start;
   const gradientEnd = settings?.find(s => s.key === "app_gradient_end")?.value || defaultColors.app_gradient_end;
+  const selectionColor = settings?.find(s => s.key === "app_selection_color")?.value || defaultColors.app_selection_color;
+  const headerBackgroundColor = settings?.find(s => s.key === "app_header_bg_color")?.value || defaultColors.app_header_bg_color;
+  const borderColor = settings?.find(s => s.key === "app_border_color")?.value || defaultColors.app_border_color;
 
   // Aplicar cores personalizadas como variáveis CSS
   root.style.setProperty("--primary-color", primaryColor);
   root.style.setProperty("--accent-color", accentColor);
   root.style.setProperty("--gradient-start", gradientStart);
   root.style.setProperty("--gradient-end", gradientEnd);
+  root.style.setProperty("--selection-color", selectionColor);
+  root.style.setProperty("--header-bg-color", headerBackgroundColor);
+  root.style.setProperty("--border-color", borderColor);
 
   // Aplicar gradiente do header
   root.style.setProperty("--header-gradient", `linear-gradient(135deg, ${gradientStart}, ${gradientEnd})`);
@@ -30,14 +39,20 @@ export function applyColorSettings(settings: SystemSettings[] | undefined) {
     primaryColor,
     accentColor,
     gradientStart,
-    gradientEnd
+    gradientEnd,
+    selectionColor,
+    headerBackgroundColor,
+    borderColor
   });
 
   return {
     primaryColor,
     accentColor,
     gradientStart,
-    gradientEnd
+    gradientEnd,
+    selectionColor,
+    headerBackgroundColor,
+    borderColor
   };
 }
 

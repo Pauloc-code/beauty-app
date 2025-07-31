@@ -16,7 +16,10 @@ export default function SettingsSection() {
     primaryColor: "#e91e63",
     accentColor: "#f06292",
     gradientStart: "#e91e63",
-    gradientEnd: "#f06292"
+    gradientEnd: "#f06292",
+    selectionColor: "#e91e63",
+    headerBackgroundColor: "#f8f9fa",
+    borderColor: "#e91e63"
   });
 
   const { data: settings, isLoading } = useQuery<SystemSettings[]>({
@@ -30,7 +33,10 @@ export default function SettingsSection() {
         primaryColor: settings.find((s: SystemSettings) => s.key === "app_primary_color")?.value || "#e91e63",
         accentColor: settings.find((s: SystemSettings) => s.key === "app_accent_color")?.value || "#f06292",
         gradientStart: settings.find((s: SystemSettings) => s.key === "app_gradient_start")?.value || "#e91e63",
-        gradientEnd: settings.find((s: SystemSettings) => s.key === "app_gradient_end")?.value || "#f06292"
+        gradientEnd: settings.find((s: SystemSettings) => s.key === "app_gradient_end")?.value || "#f06292",
+        selectionColor: settings.find((s: SystemSettings) => s.key === "app_selection_color")?.value || "#e91e63",
+        headerBackgroundColor: settings.find((s: SystemSettings) => s.key === "app_header_bg_color")?.value || "#f8f9fa",
+        borderColor: settings.find((s: SystemSettings) => s.key === "app_border_color")?.value || "#e91e63"
       });
     }
   }, [settings]);
@@ -44,7 +50,10 @@ export default function SettingsSection() {
         { key: "app_primary_color", value: colorSettings.primaryColor },
         { key: "app_accent_color", value: colorSettings.accentColor },
         { key: "app_gradient_start", value: colorSettings.gradientStart },
-        { key: "app_gradient_end", value: colorSettings.gradientEnd }
+        { key: "app_gradient_end", value: colorSettings.gradientEnd },
+        { key: "app_selection_color", value: colorSettings.selectionColor },
+        { key: "app_header_bg_color", value: colorSettings.headerBackgroundColor },
+        { key: "app_border_color", value: colorSettings.borderColor }
       ] as SystemSettings[];
       
       applyColorSettings(mockSettings);
@@ -121,7 +130,10 @@ export default function SettingsSection() {
       primaryColor: preset.primary,
       accentColor: preset.accent,
       gradientStart: preset.gradientStart,
-      gradientEnd: preset.gradientEnd
+      gradientEnd: preset.gradientEnd,
+      selectionColor: preset.primary,
+      headerBackgroundColor: "#f8f9fa",
+      borderColor: preset.primary
     });
   };
 
@@ -130,7 +142,10 @@ export default function SettingsSection() {
       { key: "app_primary_color", value: colorSettings.primaryColor },
       { key: "app_accent_color", value: colorSettings.accentColor },
       { key: "app_gradient_start", value: colorSettings.gradientStart },
-      { key: "app_gradient_end", value: colorSettings.gradientEnd }
+      { key: "app_gradient_end", value: colorSettings.gradientEnd },
+      { key: "app_selection_color", value: colorSettings.selectionColor },
+      { key: "app_header_bg_color", value: colorSettings.headerBackgroundColor },
+      { key: "app_border_color", value: colorSettings.borderColor }
     ];
     
     updateSettingsMutation.mutate(settingsArray);
@@ -141,7 +156,10 @@ export default function SettingsSection() {
       primaryColor: "#e91e63",
       accentColor: "#f06292",
       gradientStart: "#e91e63",
-      gradientEnd: "#f06292"
+      gradientEnd: "#f06292",
+      selectionColor: "#e91e63",
+      headerBackgroundColor: "#f8f9fa",
+      borderColor: "#e91e63"
     });
   };
 
@@ -268,6 +286,66 @@ export default function SettingsSection() {
                       />
                     </div>
                   </div>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="selectionColor">Cor de Seleção</Label>
+                <div className="flex items-center space-x-3 mt-1">
+                  <Input
+                    id="selectionColor"
+                    type="color"
+                    value={colorSettings.selectionColor}
+                    onChange={(e) => handleColorChange("selectionColor", e.target.value)}
+                    className="w-16 h-10 p-1 rounded cursor-pointer"
+                  />
+                  <Input
+                    type="text"
+                    value={colorSettings.selectionColor}
+                    onChange={(e) => handleColorChange("selectionColor", e.target.value)}
+                    className="flex-1"
+                    placeholder="#e91e63"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="headerBackgroundColor">Fundo Seção Superior</Label>
+                <div className="flex items-center space-x-3 mt-1">
+                  <Input
+                    id="headerBackgroundColor"
+                    type="color"
+                    value={colorSettings.headerBackgroundColor}
+                    onChange={(e) => handleColorChange("headerBackgroundColor", e.target.value)}
+                    className="w-16 h-10 p-1 rounded cursor-pointer"
+                  />
+                  <Input
+                    type="text"
+                    value={colorSettings.headerBackgroundColor}
+                    onChange={(e) => handleColorChange("headerBackgroundColor", e.target.value)}
+                    className="flex-1"
+                    placeholder="#f8f9fa"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="borderColor">Cor de Contorno</Label>
+                <div className="flex items-center space-x-3 mt-1">
+                  <Input
+                    id="borderColor"
+                    type="color"
+                    value={colorSettings.borderColor}
+                    onChange={(e) => handleColorChange("borderColor", e.target.value)}
+                    className="w-16 h-10 p-1 rounded cursor-pointer"
+                  />
+                  <Input
+                    type="text"
+                    value={colorSettings.borderColor}
+                    onChange={(e) => handleColorChange("borderColor", e.target.value)}
+                    className="flex-1"
+                    placeholder="#e91e63"
+                  />
                 </div>
               </div>
             </div>

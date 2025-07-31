@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Plus, Star, Heart, Sparkles, Clock, MapPin } from "lucide-react";
+import { Calendar, Plus, Star, Heart, Sparkles, Clock, MapPin, Gift, Award, Crown } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { AppointmentWithDetails, GalleryImage } from "@shared/schema";
@@ -58,6 +58,7 @@ export default function HomeSection() {
       id: "1",
       url: "https://images.unsplash.com/photo-1604654894610-df63bc536371?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300",
       title: "Design artístico moderno",
+      description: "Nail art com desenhos únicos",
       category: "Nail Art",
       createdAt: new Date()
     },
@@ -65,6 +66,7 @@ export default function HomeSection() {
       id: "2", 
       url: "https://images.unsplash.com/photo-1576502200272-341a4b8d5ebb?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300",
       title: "Francesa elegante",
+      description: "Estilo clássico francesinha",
       category: "Clássico",
       createdAt: new Date()
     },
@@ -72,6 +74,7 @@ export default function HomeSection() {
       id: "3",
       url: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300",
       title: "Cores vibrantes",
+      description: "Esmaltes coloridos e brilhantes",
       category: "Colorido",
       createdAt: new Date()
     },
@@ -79,13 +82,18 @@ export default function HomeSection() {
       id: "4",
       url: "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300",
       title: "Arte floral",
+      description: "Desenhos delicados com flores",
       category: "Floral",
       createdAt: new Date()
     }
   ];
 
-  const nextAppointment = todayAppointments?.length ? todayAppointments[0] : mockNextAppointment;
-  const imagesToShow = galleryImages?.length ? galleryImages : defaultGalleryImages;
+  const nextAppointment = (todayAppointments as AppointmentWithDetails[])?.length 
+    ? (todayAppointments as AppointmentWithDetails[])[0] 
+    : mockNextAppointment;
+  const imagesToShow = (galleryImages as GalleryImage[])?.length 
+    ? (galleryImages as GalleryImage[]) 
+    : defaultGalleryImages;
 
   const quickActions = [
     { id: "book", label: "Agendar", icon: Calendar, color: "bg-primary" },
@@ -119,7 +127,7 @@ export default function HomeSection() {
           <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-2xl p-4 border border-primary/20 shadow-sm">
             <div className="flex items-center space-x-4 mb-3">
               <img
-                src={nextAppointment.service.imageUrl}
+                src={nextAppointment.service.imageUrl || ""}
                 alt={nextAppointment.service.name}
                 className="w-12 h-12 object-cover rounded-xl ring-2 ring-primary ring-offset-2"
               />
@@ -241,20 +249,78 @@ export default function HomeSection() {
         </div>
       </div>
 
-      {/* Points Status */}
-      <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl p-4 border border-amber-200">
-        <div className="flex items-center justify-between">
+      {/* Loyalty Card with Rewards */}
+      <div className="bg-gradient-to-br from-primary/10 via-accent/10 to-primary/5 rounded-2xl p-4 border border-primary/20">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-2">
+            <Gift className="w-6 h-6 text-primary" />
+            <h4 className="font-bold text-gray-900">Cartão Fidelidade</h4>
+          </div>
+          <Badge className="bg-primary text-white">VIP</Badge>
+        </div>
+        
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h4 className="font-semibold text-gray-900">Seus Pontos</h4>
-            <p className="text-2xl font-bold text-amber-600">150 pts</p>
+            <p className="text-sm text-gray-600">Seus pontos</p>
+            <p className="text-2xl font-bold text-primary">150 pts</p>
           </div>
           <div className="text-right">
-            <p className="text-sm text-gray-600">Próxima recompensa:</p>
-            <p className="text-sm font-medium text-amber-600">50 pts restantes</p>
+            <p className="text-sm text-gray-600">Para próxima recompensa</p>
+            <p className="text-sm font-semibold text-accent">50 pts restantes</p>
           </div>
         </div>
-        <div className="w-full bg-amber-200 rounded-full h-2 mt-3">
-          <div className="bg-amber-500 h-2 rounded-full" style={{ width: '75%' }}></div>
+        
+        <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
+          <div className="bg-gradient-to-r from-primary to-accent h-3 rounded-full transition-all duration-500" style={{ width: '75%' }}></div>
+        </div>
+        
+        <div className="space-y-3">
+          <h5 className="font-semibold text-gray-900 flex items-center">
+            <Star className="w-4 h-4 mr-2 text-amber-500" />
+            Prêmios Disponíveis
+          </h5>
+          
+          <div className="grid grid-cols-2 gap-3">
+            {/* Available Rewards */}
+            <div className="bg-white/50 rounded-xl p-3 border border-primary/10">
+              <div className="flex items-center space-x-2 mb-2">
+                <Crown className="w-4 h-4 text-amber-500" />
+                <span className="text-xs font-medium text-gray-700">200 pts</span>
+              </div>
+              <p className="text-sm font-semibold text-gray-900">Spa Completo</p>
+              <p className="text-xs text-gray-600">Mão + Pé + Hidratação</p>
+            </div>
+            
+            <div className="bg-white/50 rounded-xl p-3 border border-primary/10">
+              <div className="flex items-center space-x-2 mb-2">
+                <Award className="w-4 h-4 text-purple-500" />
+                <span className="text-xs font-medium text-gray-700">100 pts</span>
+              </div>
+              <p className="text-sm font-semibold text-gray-900">Nail Art Premium</p>
+              <p className="text-xs text-gray-600">Design personalizado</p>
+            </div>
+            
+            <div className="bg-primary/5 rounded-xl p-3 border border-primary/20">
+              <div className="flex items-center space-x-2 mb-2">
+                <Gift className="w-4 h-4 text-primary" />
+                <span className="text-xs font-medium text-primary">50 pts</span>
+              </div>
+              <p className="text-sm font-semibold text-primary">Desconto 20%</p>
+              <p className="text-xs text-primary/70">Próximo serviço</p>
+              <Button size="sm" className="w-full mt-2 h-6 text-xs">
+                Resgatar
+              </Button>
+            </div>
+            
+            <div className="bg-white/50 rounded-xl p-3 border border-gray-200">
+              <div className="flex items-center space-x-2 mb-2">
+                <Star className="w-4 h-4 text-gray-400" />
+                <span className="text-xs font-medium text-gray-500">300 pts</span>
+              </div>
+              <p className="text-sm font-semibold text-gray-500">Curso Básico</p>
+              <p className="text-xs text-gray-400">Técnicas de manicure</p>
+            </div>
+          </div>
         </div>
       </div>
 
