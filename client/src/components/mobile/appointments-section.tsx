@@ -12,7 +12,6 @@ import { useToast } from "@/hooks/use-toast";
 import type { AppointmentWithDetails } from "@shared/schema";
 
 export default function AppointmentsSection() {
-  const [selectedAppointment, setSelectedAppointment] = useState<string | null>(null);
   const [rescheduleDialog, setRescheduleDialog] = useState<string | null>(null);
   const [newDate, setNewDate] = useState("");
   const [newTime, setNewTime] = useState("");
@@ -227,41 +226,26 @@ export default function AppointmentsSection() {
         {appointmentsToShow.length ? (
           appointmentsToShow.map((appointment) => {
             const statusInfo = getStatusInfo(appointment.status);
-            const isSelected = selectedAppointment === appointment.id;
             
             return (
               <div
                 key={appointment.id}
-                onClick={() => setSelectedAppointment(isSelected ? null : appointment.id)}
-                className={`relative bg-white rounded-2xl p-4 shadow-sm border transition-all duration-300 cursor-pointer ${
-                  isSelected
-                    ? `${statusInfo.color} shadow-lg transform scale-[1.02] ring-2 ring-primary ring-offset-1`
-                    : "border-gray-200 hover:border-primary/30 hover:shadow-md active:scale-[0.98]"
-                }`}
+                className="relative bg-white rounded-2xl p-4 shadow-sm border border-gray-200 hover:border-primary/30 hover:shadow-md transition-all duration-300"
               >
-                {/* Indicador de seleção */}
-                {isSelected && (
-                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center animate-pulse">
-                    <Star className="w-3 h-3 text-white fill-current" />
-                  </div>
-                )}
+
 
                 <div className="flex items-center space-x-3 mb-4">
                   <div className="relative">
                     <img
                       src={appointment.service.imageUrl || "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?ixlib=rb-4.0.3&auto=format&fit=crop&w=60&h=60"}
                       alt={appointment.service.name}
-                      className={`w-12 h-12 object-cover rounded-xl transition-all duration-300 ${
-                        isSelected ? "ring-2 ring-primary ring-offset-1" : ""
-                      }`}
+                      className="w-12 h-12 object-cover rounded-xl"
                     />
                   </div>
                   
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1">
-                      <h4 className={`font-semibold transition-colors ${
-                        isSelected ? "text-primary" : "text-gray-900"
-                      }`}>
+                      <h4 className="font-semibold text-gray-900">
                         {appointment.service.name}
                       </h4>
                       {statusInfo.badge}
@@ -280,30 +264,7 @@ export default function AppointmentsSection() {
                   </div>
                 </div>
 
-                {/* Detalhes expandidos */}
-                {isSelected && (
-                  <div className="mb-4 p-3 bg-gray-50 rounded-xl animate-in slide-in-from-top duration-300">
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center text-gray-600">
-                        <Clock className="w-4 h-4 mr-2" />
-                        <span>Duração: {appointment.service.duration} minutos</span>
-                      </div>
-                      <div className="flex items-center text-gray-600">
-                        <MapPin className="w-4 h-4 mr-2" />
-                        <span>Rua das Flores, 123 - Centro</span>
-                      </div>
-                      <div className="flex items-center text-gray-600">
-                        <Phone className="w-4 h-4 mr-2" />
-                        <span>(11) 99999-9999</span>
-                      </div>
-                      {appointment.notes && (
-                        <div className="mt-2 p-2 bg-white rounded-lg">
-                          <p className="text-gray-700 text-xs">📝 {appointment.notes}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+
 
                 <div className="flex items-center justify-between">
                   <div className="text-xl font-bold text-primary">
@@ -317,11 +278,7 @@ export default function AppointmentsSection() {
                           <DialogTrigger asChild>
                             <Button 
                               variant="outline" 
-                              className={`px-4 py-2 rounded-xl text-xs font-medium transition-all duration-300 ${
-                                isSelected 
-                                  ? "bg-primary/10 text-primary border-primary hover:bg-primary hover:text-white" 
-                                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                              }`}
+                              className="px-4 py-2 rounded-xl text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all duration-300"
                             >
                               <CalendarDays className="w-3 h-3 mr-1" />
                               Reagendar
@@ -419,10 +376,7 @@ export default function AppointmentsSection() {
                   </div>
                 </div>
 
-                {/* Animação de destaque */}
-                {isSelected && (
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-primary/5 to-accent/5 opacity-50 animate-pulse pointer-events-none"></div>
-                )}
+
               </div>
             );
           })
