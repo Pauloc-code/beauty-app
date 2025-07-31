@@ -8,7 +8,6 @@ import { ptBR } from "date-fns/locale";
 import type { AppointmentWithDetails, GalleryImage } from "@shared/schema";
 
 export default function HomeSection() {
-  const [selectedQuickAction, setSelectedQuickAction] = useState<string | null>(null);
   
   const { data: todayAppointments, isLoading } = useQuery({
     queryKey: ["/api/appointments", { date: new Date().toISOString().split('T')[0] }],
@@ -95,12 +94,7 @@ export default function HomeSection() {
     ? (galleryImages as GalleryImage[]) 
     : defaultGalleryImages;
 
-  const quickActions = [
-    { id: "book", label: "Agendar", icon: Calendar, color: "bg-primary" },
-    { id: "gallery", label: "Ver Portfólio", icon: Heart, color: "bg-pink-500" },
-    { id: "services", label: "Serviços", icon: Sparkles, color: "bg-purple-500" },
-    { id: "profile", label: "Meu Perfil", icon: Star, color: "bg-amber-500" }
-  ];
+
 
   return (
     <div className="p-4 space-y-6">
@@ -175,43 +169,7 @@ export default function HomeSection() {
         )}
       </div>
 
-      {/* Quick Actions */}
-      <div>
-        <h3 className="text-lg font-bold text-gray-900 mb-3">Ações Rápidas</h3>
-        <div className="grid grid-cols-2 gap-3">
-          {quickActions.map((action) => {
-            const Icon = action.icon;
-            const isSelected = selectedQuickAction === action.id;
-            
-            return (
-              <button
-                key={action.id}
-                onClick={() => setSelectedQuickAction(isSelected ? null : action.id)}
-                className={`relative p-4 rounded-2xl text-white font-semibold transition-all duration-300 ${
-                  action.color
-                } ${
-                  isSelected 
-                    ? "shadow-2xl transform scale-105 ring-4 ring-white ring-offset-2" 
-                    : "shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-95"
-                }`}
-              >
-                <div className="flex flex-col items-center space-y-2">
-                  <div className={`p-3 rounded-full transition-all duration-300 ${
-                    isSelected ? "bg-white/30 scale-110" : "bg-white/20"
-                  }`}>
-                    <Icon className="w-6 h-6" />
-                  </div>
-                  <span className="text-sm">{action.label}</span>
-                </div>
-                
-                {isSelected && (
-                  <div className="absolute inset-0 rounded-2xl bg-white/20 animate-pulse"></div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+
 
       {/* Recent Work Gallery */}
       <div>
@@ -324,14 +282,7 @@ export default function HomeSection() {
         </div>
       </div>
 
-      {/* Floating Action Button */}
-      {selectedQuickAction && (
-        <div className="fixed bottom-4 left-4 right-4 z-50">
-          <Button className="w-full bg-primary text-white py-4 rounded-2xl font-semibold text-lg shadow-2xl hover:bg-primary/90 transform transition-all duration-300 hover:scale-[1.02]">
-            {quickActions.find(a => a.id === selectedQuickAction)?.label}
-          </Button>
-        </div>
-      )}
+
     </div>
   );
 }
