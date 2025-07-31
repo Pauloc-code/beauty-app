@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Calendar, Clock, MapPin, Phone, Star, X, CalendarDays } from "lucide-react";
 import { format, addHours, isAfter } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { AppointmentWithDetails } from "@shared/schema";
 
@@ -29,6 +29,7 @@ export default function AppointmentsSection() {
   
   const { data: appointments, isLoading } = useQuery({
     queryKey: ["/api/appointments", { clientId }],
+    refetchInterval: 30000, // Atualiza a cada 30 segundos
   });
 
   // Mutação para reagendar
@@ -268,7 +269,7 @@ export default function AppointmentsSection() {
 
                 <div className="flex items-center justify-between">
                   <div className="text-lg font-bold text-primary">
-                    R$ {parseFloat(appointment.price).toFixed(2).replace('.', ',')}
+                    R$ {parseFloat(appointment.service.price).toFixed(2).replace('.', ',')}
                   </div>
                   
                   <div className="flex gap-2">
