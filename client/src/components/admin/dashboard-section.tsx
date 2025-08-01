@@ -600,11 +600,11 @@ export default function DashboardSection() {
                         <p className="text-sm text-gray-500">{appointment.client.phone}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold text-primary">
-                          R$ {parseFloat(appointment.price).toFixed(2).replace('.', ',')}
-                        </p>
-                        <div className="flex flex-col space-y-1 mt-2">
-                          <div className="flex space-x-2">
+                        <div className="flex flex-col space-y-1">
+                          <div className="flex items-center justify-end space-x-2">
+                            <p className="font-semibold text-primary text-sm">
+                              R$ {parseFloat(appointment.price).toFixed(2).replace('.', ',')}
+                            </p>
                             <Button
                               size="sm"
                               variant="outline"
@@ -614,6 +614,8 @@ export default function DashboardSection() {
                               <Edit className="w-3 h-3 mr-1" />
                               Detalhes
                             </Button>
+                          </div>
+                          <div className="flex space-x-2">
                             <Button
                               size="sm"
                               variant="outline"
@@ -634,14 +636,12 @@ export default function DashboardSection() {
                               <X className="w-3 h-3 mr-1" />
                               {appointment.status === 'no_show' ? 'Faltou' : 'Faltou'}
                             </Button>
-                          </div>
-                          {appointment.status === 'scheduled' && (
-                            <div className="text-xs text-center">
-                              <span className="inline-block px-2 py-1 bg-blue-50 border border-blue-200 text-blue-700 rounded-md font-medium">
+                            {appointment.status === 'scheduled' && (
+                              <span className="inline-block px-2 py-1 bg-blue-50 border border-blue-200 text-blue-700 rounded-md font-medium text-xs">
                                 Agendado
                               </span>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
