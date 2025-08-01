@@ -77,6 +77,7 @@ export interface IStorage {
   getSystemSettings(): Promise<SystemSettings[]>;
   getSystemSetting(key: string): Promise<SystemSettings | undefined>;
   upsertSystemSetting(key: string, value: string): Promise<SystemSettings>;
+  initializeSystemSettings(): Promise<SystemSettings>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -384,6 +385,27 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  async initializeSystemSettings(): Promise<SystemSettings> {
+    // Check if settings already exist
+    const [existing] = await db.select().from(systemSettings).limit(1);
+    if (existing) {
+      return existing;
+    }
+
+    // Create default settings
+    const [settings] = await db
+      .insert(systemSettings)
+      .values({
+        timezone: "America/Sao_Paulo",
+        showHolidays: true,
+        holidayRegion: "sao_paulo",
+        workingDays: [1, 2, 3, 4, 5, 6], // Monday to Saturday
+        workingHours: { start: "08:00", end: "18:00" }
+      })
+      .returning();
+    return settings;
   }
 }
 

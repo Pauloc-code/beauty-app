@@ -68,9 +68,12 @@ export const transactions = pgTable("transactions", {
 
 export const systemSettings = pgTable("system_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  key: text("key").notNull().unique(),
-  value: text("value").notNull(),
-  description: text("description"),
+  timezone: varchar("timezone").default("America/Sao_Paulo").notNull(),
+  showHolidays: boolean("show_holidays").default(true).notNull(),
+  holidayRegion: varchar("holiday_region").default("sao_paulo").notNull(),
+  workingDays: json("working_days").default([1, 2, 3, 4, 5, 6]), // 0=domingo, 1=segunda, etc
+  workingHours: json("working_hours").default({ start: "08:00", end: "18:00" }),
+  createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

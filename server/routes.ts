@@ -1,7 +1,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertClientSchema, insertServiceSchema, insertAppointmentSchema, insertGalleryImageSchema, insertTransactionSchema } from "@shared/schema";
+import { insertClientSchema, insertServiceSchema, insertAppointmentSchema, insertGalleryImageSchema, insertTransactionSchema, systemSettings } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import multer from "multer";
 import sharp from "sharp";
@@ -407,34 +409,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Settings routes
-  app.get("/api/settings", async (req, res) => {
+  // System Settings routes
+  app.get("/api/system-settings", async (req, res) => {
     try {
-      const settings = await storage.getSystemSettings();
+      const settings = await storage.initializeSystemSettings();
       res.json(settings);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch system settings" });
+      console.error("Error fetching system settings:", error);
+      res.status(500).json({ error: "Failed to fetch system settings" });
     }
   });
 
-  app.post("/api/settings/bulk", async (req, res) => {
+  app.put("/api/system-settings", async (req, res) => {
     try {
-      const settingsArray = req.body as { key: string; value: string }[];
-      for (const setting of settingsArray) {
-        await storage.upsertSystemSetting(setting.key, setting.value);
-      }
-      res.json({ message: "Settings updated successfully" });
+      const { timezone, showHolidays, holidayRegion, workingDays, workingHours } = req.body;
+      
+      // Get current settings
+      const current = await storage.initializeSystemSettings();
+      
+      // Update with new values
+      const [updated] = await db
+        .update(systemSettings)
+        .set({
+          timezone: timezone || current.timezone,
+          showHolidays: showHolidays !== undefined ? showHolidays : current.showHolidays,
+          holidayRegion: holidayRegion || current.holidayRegion,
+          workingDays: workingDays || current.workingDays,
+          workingHours: workingHours || current.workingHours,
+          updatedAt: new Date()
+        })
+        .where(eq(systemSettings.id, current.id))
+        .returning();
+      
+      res.json(updated);
     } catch (error) {
-      res.status(500).json({ message: "Failed to update settings" });
-    }
-  });
-
-  app.get("/api/settings/:key", async (req, res) => {
-    try {
-      const setting = await storage.getSystemSetting(req.params.key);
-      res.json(setting);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch setting" });
+      console.error("Error updating system settings:", error);
+      res.status(500).json({ error: "Failed to update system settings" });
     }
   });
 
