@@ -123,13 +123,15 @@ export default function DashboardSection() {
       date: z.string().min(1, "Data é obrigatória"),
       time: z.string().min(1, "Horário é obrigatório"),
       notes: z.string().optional(),
-      status: z.string().optional()
+      status: z.string().optional(),
+      paymentMethod: z.string().optional()
     })),
     defaultValues: {
       date: "",
       time: "",
       notes: "",
-      status: ""
+      status: "",
+      paymentMethod: ""
     }
   });
 
@@ -332,7 +334,8 @@ export default function DashboardSection() {
       date: localDateTime.toISOString().split('T')[0],
       time: format(localDateTime, "HH:mm"),
       notes: appointment.notes || "",
-      status: appointment.status
+      status: appointment.status,
+      paymentMethod: appointment.paymentMethod || ""
     });
     
     setAppointmentDetailOpen(true);
@@ -1151,9 +1154,19 @@ export default function DashboardSection() {
                 <p className="font-medium text-gray-900">{editingAppointment?.client?.name}</p>
                 <p className="text-sm text-gray-600">{editingAppointment?.service?.name}</p>
                 <p className="text-sm text-gray-500">{editingAppointment?.client?.phone}</p>
-                <p className="text-primary font-semibold">
-                  R$ {editingAppointment?.price ? parseFloat(editingAppointment.price).toFixed(2).replace('.', ',') : '0,00'}
-                </p>
+                <div className="flex justify-between items-center mt-2">
+                  <p className="text-primary font-semibold">
+                    R$ {editingAppointment?.price ? parseFloat(editingAppointment.price).toFixed(2).replace('.', ',') : '0,00'}
+                  </p>
+                  {editingAppointment?.status === 'completed' && editingAppointment?.paymentMethod && (
+                    <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-md font-medium">
+                      {editingAppointment.paymentMethod === 'cash' && '💰 Dinheiro'}
+                      {editingAppointment.paymentMethod === 'pix' && '📱 PIX'}
+                      {editingAppointment.paymentMethod === 'card' && '💳 Cartão'}
+                      {editingAppointment.paymentMethod === 'credit' && '📝 Fiado'}
+                    </span>
+                  )}
+                </div>
               </div>
               
               <div className="grid grid-cols-2 gap-3">
@@ -1226,6 +1239,32 @@ export default function DashboardSection() {
                   </FormItem>
                 )}
               />
+
+              {editingAppointment?.status === 'completed' && (
+                <FormField
+                  control={editAppointmentForm.control}
+                  name="paymentMethod"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Forma de Pagamento</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a forma de pagamento" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="cash">💰 Dinheiro</SelectItem>
+                          <SelectItem value="pix">📱 PIX</SelectItem>
+                          <SelectItem value="card">💳 Cartão</SelectItem>
+                          <SelectItem value="credit">📝 Fiado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <div className="flex gap-3 pt-4">
                 <Button 
