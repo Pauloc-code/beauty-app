@@ -22,6 +22,8 @@ export default function CalendarSection() {
   const [isEditAppointmentOpen, setIsEditAppointmentOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const [showFutureAppointments, setShowFutureAppointments] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [pendingStatusUpdate, setPendingStatusUpdate] = useState<any>(null);
   const [filters, setFilters] = useState({
     status: "all",
     service: "all",
@@ -421,7 +423,14 @@ export default function CalendarSection() {
 
                       <div>
                         <Label>Status</Label>
-                        <Select value={selectedAppointment.status} onValueChange={(value) => setSelectedAppointment({...selectedAppointment, status: value})}>
+                        <Select value={selectedAppointment.status} onValueChange={(value) => {
+                          if (value === "completed" && selectedAppointment.status !== "completed") {
+                            setPendingStatusUpdate({...selectedAppointment, status: value});
+                            setIsPaymentModalOpen(true);
+                          } else {
+                            setSelectedAppointment({...selectedAppointment, status: value});
+                          }
+                        }}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -474,6 +483,138 @@ export default function CalendarSection() {
                   )}
                 </DialogContent>
               </Dialog>
+
+              {/* Payment Method Modal */}
+              <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Finalizar Agendamento</DialogTitle>
+                    <DialogDescription>
+                      Selecione a forma de pagamento utilizada pelo cliente.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        variant="outline"
+                        className="h-16 flex flex-col items-center justify-center"
+                        onClick={() => {
+                          const updatedData = {
+                            ...pendingStatusUpdate,
+                            paymentMethod: "dinheiro",
+                            paymentStatus: "paid"
+                          };
+                          setSelectedAppointment(updatedData);
+                          updateAppointmentMutation.mutate({
+                            id: updatedData.id,
+                            clientId: updatedData.clientId,
+                            serviceId: updatedData.serviceId,
+                            date: new Date(`${updatedData.date.split('T')[0]}T${updatedData.time || format(new Date(updatedData.date), "HH:mm")}:00.000Z`),
+                            status: updatedData.status,
+                            price: updatedData.price,
+                            paymentMethod: "dinheiro",
+                            paymentStatus: "paid"
+                          });
+                          setIsPaymentModalOpen(false);
+                          setPendingStatusUpdate(null);
+                        }}
+                      >
+                        💵
+                        <span className="text-xs mt-1">Dinheiro</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-16 flex flex-col items-center justify-center"
+                        onClick={() => {
+                          const updatedData = {
+                            ...pendingStatusUpdate,
+                            paymentMethod: "pix",
+                            paymentStatus: "paid"
+                          };
+                          setSelectedAppointment(updatedData);
+                          updateAppointmentMutation.mutate({
+                            id: updatedData.id,
+                            clientId: updatedData.clientId,
+                            serviceId: updatedData.serviceId,
+                            date: new Date(`${updatedData.date.split('T')[0]}T${updatedData.time || format(new Date(updatedData.date), "HH:mm")}:00.000Z`),
+                            status: updatedData.status,
+                            price: updatedData.price,
+                            paymentMethod: "pix",
+                            paymentStatus: "paid"
+                          });
+                          setIsPaymentModalOpen(false);
+                          setPendingStatusUpdate(null);
+                        }}
+                      >
+                        📱
+                        <span className="text-xs mt-1">PIX</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-16 flex flex-col items-center justify-center"
+                        onClick={() => {
+                          const updatedData = {
+                            ...pendingStatusUpdate,
+                            paymentMethod: "cartao",
+                            paymentStatus: "paid"
+                          };
+                          setSelectedAppointment(updatedData);
+                          updateAppointmentMutation.mutate({
+                            id: updatedData.id,
+                            clientId: updatedData.clientId,
+                            serviceId: updatedData.serviceId,
+                            date: new Date(`${updatedData.date.split('T')[0]}T${updatedData.time || format(new Date(updatedData.date), "HH:mm")}:00.000Z`),
+                            status: updatedData.status,
+                            price: updatedData.price,
+                            paymentMethod: "cartao",
+                            paymentStatus: "paid"
+                          });
+                          setIsPaymentModalOpen(false);
+                          setPendingStatusUpdate(null);
+                        }}
+                      >
+                        💳
+                        <span className="text-xs mt-1">Cartão</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-16 flex flex-col items-center justify-center"
+                        onClick={() => {
+                          const updatedData = {
+                            ...pendingStatusUpdate,
+                            paymentMethod: "fiado",
+                            paymentStatus: "pending"
+                          };
+                          setSelectedAppointment(updatedData);
+                          updateAppointmentMutation.mutate({
+                            id: updatedData.id,
+                            clientId: updatedData.clientId,
+                            serviceId: updatedData.serviceId,
+                            date: new Date(`${updatedData.date.split('T')[0]}T${updatedData.time || format(new Date(updatedData.date), "HH:mm")}:00.000Z`),
+                            status: updatedData.status,
+                            price: updatedData.price,
+                            paymentMethod: "fiado",
+                            paymentStatus: "pending"
+                          });
+                          setIsPaymentModalOpen(false);
+                          setPendingStatusUpdate(null);
+                        }}
+                      >
+                        📝
+                        <span className="text-xs mt-1">Fiado</span>
+                      </Button>
+                    </div>
+                    <div className="flex justify-end pt-4">
+                      <Button variant="outline" onClick={() => {
+                        setIsPaymentModalOpen(false);
+                        setPendingStatusUpdate(null);
+                      }}>
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </div>
@@ -513,7 +654,7 @@ export default function CalendarSection() {
                             <div className={`px-2 py-1 rounded-full text-xs font-medium ${
                               appointment.status === "scheduled" ? "bg-blue-100 text-blue-800" :
                               appointment.status === "confirmed" ? "bg-green-100 text-green-800" :
-                              appointment.status === "completed" ? "bg-gray-100 text-gray-800" :
+                              appointment.status === "completed" ? "bg-green-100 text-green-800" :
                               "bg-red-100 text-red-800"
                             }`}>
                               {appointment.status === "scheduled" ? "Agendado" :
@@ -637,7 +778,12 @@ export default function CalendarSection() {
                           {dayAppointments.slice(0, 2).map((appointment: any, index) => (
                             <div
                               key={appointment.id}
-                              className="bg-primary text-white text-xs p-1 rounded cursor-pointer hover:bg-primary/90"
+                              className={`text-white text-xs p-1 rounded cursor-pointer hover:opacity-90 ${
+                                appointment.status === "scheduled" ? "bg-blue-500" :
+                                appointment.status === "confirmed" ? "bg-green-500" :
+                                appointment.status === "completed" ? "bg-gray-600" :
+                                "bg-red-500"
+                              }`}
                               onClick={() => {
                                 setSelectedAppointment(appointment);
                                 setIsEditAppointmentOpen(true);
@@ -687,7 +833,12 @@ export default function CalendarSection() {
                                 {hourAppointments.map((appointment: any) => (
                                   <div
                                     key={appointment.id}
-                                    className="bg-primary text-white p-3 rounded-lg cursor-pointer hover:bg-primary/90 group"
+                                    className={`text-white p-3 rounded-lg cursor-pointer hover:opacity-90 group ${
+                                      appointment.status === "scheduled" ? "bg-blue-500" :
+                                      appointment.status === "confirmed" ? "bg-green-500" :
+                                      appointment.status === "completed" ? "bg-gray-600" :
+                                      "bg-red-500"
+                                    }`}
                                     onClick={() => {
                                       setSelectedAppointment(appointment);
                                       setIsEditAppointmentOpen(true);
