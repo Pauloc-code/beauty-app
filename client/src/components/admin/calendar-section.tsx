@@ -460,10 +460,16 @@ export default function CalendarSection() {
                           <Button 
                             onClick={() => {
                               console.log("Salvando alterações:", selectedAppointment);
+                              
+                              // Construir a data corretamente
+                              const dateStr = selectedAppointment.date.split('T')[0];
+                              const timeStr = selectedAppointment.time || format(new Date(selectedAppointment.date), "HH:mm");
+                              const finalDate = new Date(`${dateStr}T${timeStr}:00`);
+                              
                               const updatedData = {
                                 clientId: selectedAppointment.clientId,
                                 serviceId: selectedAppointment.serviceId,
-                                date: new Date(`${selectedAppointment.date.split('T')[0]}T${selectedAppointment.time || format(new Date(selectedAppointment.date), "HH:mm")}:00.000Z`),
+                                date: finalDate,
                                 status: selectedAppointment.status,
                                 price: selectedAppointment.price
                               };
@@ -505,11 +511,17 @@ export default function CalendarSection() {
                             paymentStatus: "paid"
                           };
                           setSelectedAppointment(updatedData);
+                          
+                          // Construir a data corretamente
+                          const dateStr = updatedData.date.split('T')[0];
+                          const timeStr = updatedData.time || format(new Date(updatedData.date), "HH:mm");
+                          const finalDate = new Date(`${dateStr}T${timeStr}:00`);
+                          
                           updateAppointmentMutation.mutate({
                             id: updatedData.id,
                             clientId: updatedData.clientId,
                             serviceId: updatedData.serviceId,
-                            date: new Date(`${updatedData.date.split('T')[0]}T${updatedData.time || format(new Date(updatedData.date), "HH:mm")}:00.000Z`),
+                            date: finalDate,
                             status: updatedData.status,
                             price: updatedData.price,
                             paymentMethod: "dinheiro",
@@ -532,11 +544,16 @@ export default function CalendarSection() {
                             paymentStatus: "paid"
                           };
                           setSelectedAppointment(updatedData);
+                          // Construir a data corretamente
+                          const dateStr2 = updatedData.date.split('T')[0];
+                          const timeStr2 = updatedData.time || format(new Date(updatedData.date), "HH:mm");
+                          const finalDate2 = new Date(`${dateStr2}T${timeStr2}:00`);
+                          
                           updateAppointmentMutation.mutate({
                             id: updatedData.id,
                             clientId: updatedData.clientId,
                             serviceId: updatedData.serviceId,
-                            date: new Date(`${updatedData.date.split('T')[0]}T${updatedData.time || format(new Date(updatedData.date), "HH:mm")}:00.000Z`),
+                            date: finalDate2,
                             status: updatedData.status,
                             price: updatedData.price,
                             paymentMethod: "pix",
@@ -559,11 +576,16 @@ export default function CalendarSection() {
                             paymentStatus: "paid"
                           };
                           setSelectedAppointment(updatedData);
+                          // Construir a data corretamente
+                          const dateStr3 = updatedData.date.split('T')[0];
+                          const timeStr3 = updatedData.time || format(new Date(updatedData.date), "HH:mm");
+                          const finalDate3 = new Date(`${dateStr3}T${timeStr3}:00`);
+                          
                           updateAppointmentMutation.mutate({
                             id: updatedData.id,
                             clientId: updatedData.clientId,
                             serviceId: updatedData.serviceId,
-                            date: new Date(`${updatedData.date.split('T')[0]}T${updatedData.time || format(new Date(updatedData.date), "HH:mm")}:00.000Z`),
+                            date: finalDate3,
                             status: updatedData.status,
                             price: updatedData.price,
                             paymentMethod: "cartao",
@@ -586,11 +608,16 @@ export default function CalendarSection() {
                             paymentStatus: "pending"
                           };
                           setSelectedAppointment(updatedData);
+                          // Construir a data corretamente
+                          const dateStr4 = updatedData.date.split('T')[0];
+                          const timeStr4 = updatedData.time || format(new Date(updatedData.date), "HH:mm");
+                          const finalDate4 = new Date(`${dateStr4}T${timeStr4}:00`);
+                          
                           updateAppointmentMutation.mutate({
                             id: updatedData.id,
                             clientId: updatedData.clientId,
                             serviceId: updatedData.serviceId,
-                            date: new Date(`${updatedData.date.split('T')[0]}T${updatedData.time || format(new Date(updatedData.date), "HH:mm")}:00.000Z`),
+                            date: finalDate4,
                             status: updatedData.status,
                             price: updatedData.price,
                             paymentMethod: "fiado",
