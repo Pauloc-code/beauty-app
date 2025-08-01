@@ -76,18 +76,23 @@ export default function CalendarSection() {
   });
 
   const updateAppointmentMutation = useMutation({
-    mutationFn: (appointment: any) =>
-      apiRequest("PUT", `/api/appointments/${appointment.id}`, appointment),
+    mutationFn: async (appointmentData: any) => {
+      console.log("Enviando para API:", appointmentData);
+      const { id, ...updateData } = appointmentData;
+      return await apiRequest("PUT", `/api/appointments/${id}`, updateData);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/today"] });
       setIsEditAppointmentOpen(false);
       setSelectedAppointment(null);
       toast({
-        title: "Agendamento atualizado",
+        title: "Sucesso",
         description: "Agendamento foi atualizado com sucesso.",
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Erro ao atualizar agendamento:", error);
       toast({
         title: "Erro",
         description: "Não foi possível atualizar o agendamento.",
@@ -384,13 +389,13 @@ export default function CalendarSection() {
 
                       <div>
                         <Label>Cliente</Label>
-                        <Select value={selectedAppointment.clientId?.toString()} onValueChange={(value) => setSelectedAppointment({...selectedAppointment, clientId: parseInt(value)})}>
+                        <Select value={selectedAppointment.clientId} onValueChange={(value) => setSelectedAppointment({...selectedAppointment, clientId: value})}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             {(clients as any[] || []).map((client: any) => (
-                              <SelectItem key={client.id} value={client.id.toString()}>
+                              <SelectItem key={client.id} value={client.id}>
                                 {client.name}
                               </SelectItem>
                             ))}
@@ -400,14 +405,14 @@ export default function CalendarSection() {
 
                       <div>
                         <Label>Serviço</Label>
-                        <Select value={selectedAppointment.serviceId?.toString()} onValueChange={(value) => setSelectedAppointment({...selectedAppointment, serviceId: parseInt(value)})}>
+                        <Select value={selectedAppointment.serviceId} onValueChange={(value) => setSelectedAppointment({...selectedAppointment, serviceId: value})}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             {(services as any[] || []).map((service: any) => (
-                              <SelectItem key={service.id} value={service.id.toString()}>
-                                {service.name} - R$ {service.price}
+                              <SelectItem key={service.id} value={service.id}>
+                                {service.name} - R$ {parseFloat(service.price).toFixed(2).replace('.', ',')}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -445,15 +450,19 @@ export default function CalendarSection() {
                           </Button>
                           <Button 
                             onClick={() => {
-                              const updatedAppointment = {
-                                id: selectedAppointment.id,
+                              console.log("Salvando alterações:", selectedAppointment);
+                              const updatedData = {
                                 clientId: selectedAppointment.clientId,
                                 serviceId: selectedAppointment.serviceId,
-                                date: new Date(`${selectedAppointment.date}T${selectedAppointment.time || format(new Date(selectedAppointment.date), "HH:mm")}`),
+                                date: new Date(`${selectedAppointment.date.split('T')[0]}T${selectedAppointment.time || format(new Date(selectedAppointment.date), "HH:mm")}:00.000Z`),
                                 status: selectedAppointment.status,
                                 price: selectedAppointment.price
                               };
-                              updateAppointmentMutation.mutate(updatedAppointment);
+                              console.log("Dados a serem enviados:", updatedData);
+                              updateAppointmentMutation.mutate({
+                                id: selectedAppointment.id,
+                                ...updatedData
+                              });
                             }}
                             disabled={updateAppointmentMutation.isPending}
                           >
