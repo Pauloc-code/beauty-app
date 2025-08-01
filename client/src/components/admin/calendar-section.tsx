@@ -38,6 +38,62 @@ export default function CalendarSection() {
   });
   const { toast } = useToast();
 
+  // Função para verificar se uma data é feriado
+  const isHoliday = (date: Date): { isHoliday: boolean; name?: string } => {
+    if (!systemSettings?.showHolidays) return { isHoliday: false };
+    
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    
+    // Feriados nacionais fixos
+    const nationalHolidays = [
+      { month: 1, day: 1, name: "Confraternização Universal" },
+      { month: 4, day: 21, name: "Tiradentes" },
+      { month: 5, day: 1, name: "Dia do Trabalhador" },
+      { month: 9, day: 7, name: "Independência do Brasil" },
+      { month: 10, day: 12, name: "Nossa Senhora Aparecida" },
+      { month: 11, day: 2, name: "Finados" },
+      { month: 11, day: 15, name: "Proclamação da República" },
+      { month: 12, day: 25, name: "Natal" }
+    ];
+    
+    // Verificar feriados nacionais
+    const nationalHoliday = nationalHolidays.find(h => h.month === month && h.day === day);
+    if (nationalHoliday) {
+      return { isHoliday: true, name: nationalHoliday.name };
+    }
+    
+    // Feriados regionais específicos
+    if (systemSettings?.holidayRegion) {
+      const regionalHolidays: Record<string, Array<{month: number, day: number, name: string}>> = {
+        sao_paulo: [
+          { month: 1, day: 25, name: "Aniversário de São Paulo" },
+          { month: 2, day: 13, name: "Carnaval" }, // aproximado
+          { month: 2, day: 14, name: "Carnaval" }
+        ],
+        rio_de_janeiro: [
+          { month: 4, day: 23, name: "São Jorge" },
+          { month: 2, day: 13, name: "Carnaval" },
+          { month: 2, day: 14, name: "Carnaval" }
+        ],
+        manaus: [
+          { month: 10, day: 5, name: "Elevação do Amazonas à Categoria de Estado" }
+        ],
+        fortaleza: [
+          { month: 8, day: 15, name: "Nossa Senhora da Assunção" }
+        ]
+      };
+      
+      const regionHolidays = regionalHolidays[systemSettings.holidayRegion] || [];
+      const regionalHoliday = regionHolidays.find(h => h.month === month && h.day === day);
+      if (regionalHoliday) {
+        return { isHoliday: true, name: regionalHoliday.name };
+      }
+    }
+    
+    return { isHoliday: false };
+  };
+
   const { data: appointments = [] } = useQuery({
     queryKey: ["/api/appointments"],
   });
@@ -48,6 +104,10 @@ export default function CalendarSection() {
 
   const { data: services = [] } = useQuery({
     queryKey: ["/api/services"],
+  });
+
+  const { data: systemSettings } = useQuery({
+    queryKey: ["/api/system-settings"],
   });
 
   const createAppointmentMutation = useMutation({
@@ -787,22 +847,32 @@ export default function CalendarSection() {
                   {daysInMonth.map((date) => {
                     const dayAppointments = getAppointmentsForDay(date);
                     const isToday = isSameDay(date, new Date());
+                    const holidayInfo = isHoliday(date);
                     
                     return (
                       <div
                         key={date.toISOString()}
                         className={`bg-white p-3 h-24 border-l border-b border-gray-100 ${
-                          isToday ? "bg-blue-50" : ""
+                          isToday ? "bg-blue-50" : holidayInfo.isHoliday ? "bg-red-50" : ""
                         }`}
                       >
                         <div className={`text-sm font-medium mb-1 ${
                           isToday ? "text-primary font-bold" : 
+                          holidayInfo.isHoliday ? "text-red-600 font-semibold" :
                           isSameMonth(date, currentDate) ? "text-gray-900" : "text-gray-400"
                         }`}>
                           {format(date, "d")}
                         </div>
+                        
+                        {/* Indicador de feriado */}
+                        {holidayInfo.isHoliday && (
+                          <div className="text-xs text-red-600 font-medium mb-1 truncate" title={holidayInfo.name}>
+                            🎉 {holidayInfo.name?.split(' ')[0]}
+                          </div>
+                        )}
+                        
                         <div className="space-y-1">
-                          {dayAppointments.slice(0, 2).map((appointment: any, index) => (
+                          {dayAppointments.slice(0, holidayInfo.isHoliday ? 1 : 2).map((appointment: any, index) => (
                             <div
                               key={appointment.id}
                               className={`text-white text-xs p-1 rounded cursor-pointer hover:opacity-90 ${
@@ -819,9 +889,9 @@ export default function CalendarSection() {
                               {format(new Date(appointment.date), "HH:mm")} {appointment.client.name}
                             </div>
                           ))}
-                          {dayAppointments.length > 2 && (
+                          {dayAppointments.length > (holidayInfo.isHoliday ? 1 : 2) && (
                             <div className="text-xs text-gray-500">
-                              +{dayAppointments.length - 2} mais
+                              +{dayAppointments.length - (holidayInfo.isHoliday ? 1 : 2)} mais
                             </div>
                           )}
                         </div>
@@ -838,6 +908,15 @@ export default function CalendarSection() {
                     <h4 className="text-lg font-semibold text-gray-900">
                       {format(currentDate, "EEEE, dd 'de' MMMM", { locale: ptBR })}
                     </h4>
+                    {(() => {
+                      const dayHolidayInfo = isHoliday(currentDate);
+                      return dayHolidayInfo.isHoliday && (
+                        <div className="mt-2 flex items-center gap-2 px-3 py-2 bg-red-50 rounded-lg">
+                          <span className="text-red-600">🎉</span>
+                          <span className="text-red-600 font-medium text-sm">{dayHolidayInfo.name}</span>
+                        </div>
+                      );
+                    })()}
                   </div>
                   
                   <div className="max-h-96 overflow-y-auto">
