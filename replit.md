@@ -29,11 +29,15 @@ Preferred communication style: Simple, everyday language.
 - Calendar with multiple view modes and appointment editing
 - Filter system working correctly for appointment management
 - Future appointments list view with chronological organization
+- **Timezone system fully implemented and working** - appointments now respect São Paulo timezone (UTC-3)
+- **Improved appointment action buttons** - white background with better visual states
 
 ### Technical Notes
 - Critical Fix: apiRequest function expects (method, url, data) parameters, not (url, options)
 - Holiday System: Supports national holidays + regional holidays for São Paulo, Rio, Manaus, Fortaleza
 - Dashboard Fix: Changed from server-side date filtering to client-side filtering for reliability
+- **Timezone Implementation**: Complete timezone conversion using date-fns-tz library with fromZonedTime
+- **Frontend-Backend Sync**: Appointments properly converted from local time to UTC using configured timezone
 - Object storage properly configured for image uploads
 - Database schema optimized for beauty salon operations
 - All major admin panel features completed and tested

@@ -532,31 +532,43 @@ export default function DashboardSection() {
                           R$ {parseFloat(appointment.price).toFixed(2).replace('.', ',')}
                         </p>
                         <div className="flex flex-col space-y-1 mt-2">
-                          <div className="flex space-x-1">
+                          <div className="flex space-x-2">
                             <Button
                               size="sm"
-                              variant="ghost"
-                              className="p-1 text-gray-400 hover:text-green-600"
+                              variant="outline"
+                              className={`px-3 py-1 text-xs font-medium rounded-md border transition-colors ${
+                                appointment.status === 'completed' 
+                                  ? 'bg-green-50 border-green-200 text-green-700' 
+                                  : 'bg-white border-gray-200 text-gray-600 hover:bg-green-50 hover:border-green-200 hover:text-green-700'
+                              }`}
                               onClick={() => handleCompleteAppointment(appointment)}
                               disabled={appointment.status === 'completed'}
                             >
-                              <Check className="w-4 h-4" />
+                              <Check className="w-3 h-3 mr-1" />
+                              {appointment.status === 'completed' ? 'Concluído' : 'Confirmar'}
                             </Button>
                             <Button
                               size="sm"
-                              variant="ghost"
-                              className="p-1 text-gray-400 hover:text-yellow-600"
+                              variant="outline"
+                              className={`px-3 py-1 text-xs font-medium rounded-md border transition-colors ${
+                                appointment.status === 'no_show' 
+                                  ? 'bg-yellow-50 border-yellow-200 text-yellow-700' 
+                                  : 'bg-white border-gray-200 text-gray-600 hover:bg-yellow-50 hover:border-yellow-200 hover:text-yellow-700'
+                              }`}
                               onClick={() => handleNoShowAppointment(appointment)}
                               disabled={appointment.status === 'no_show'}
                             >
-                              <X className="w-4 h-4" />
+                              <X className="w-3 h-3 mr-1" />
+                              {appointment.status === 'no_show' ? 'Faltou' : 'Faltou'}
                             </Button>
                           </div>
-                          <div className="text-xs">
-                            {appointment.status === 'completed' && <span className="text-green-600">✓ Concluído</span>}
-                            {appointment.status === 'no_show' && <span className="text-yellow-600">! Faltou</span>}
-                            {appointment.status === 'scheduled' && <span className="text-blue-600">Agendado</span>}
-                          </div>
+                          {appointment.status === 'scheduled' && (
+                            <div className="text-xs text-center">
+                              <span className="inline-block px-2 py-1 bg-blue-50 border border-blue-200 text-blue-700 rounded-md font-medium">
+                                Agendado
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
