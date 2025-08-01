@@ -601,7 +601,7 @@ export default function DashboardSection() {
                       </div>
                       <div className="text-right">
                         <div className="flex items-center justify-end space-x-2 mt-2">
-                          <p className="font-semibold text-primary text-sm">
+                          <p className="text-primary text-left text-[18px] font-bold">
                             R$ {parseFloat(appointment.price).toFixed(2).replace('.', ',')}
                           </p>
                           <Button
