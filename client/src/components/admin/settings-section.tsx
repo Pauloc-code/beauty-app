@@ -68,10 +68,8 @@ export default function SettingsSection() {
       console.log('🔄 Salvando configurações:', updatedSettings);
       
       try {
-        const result = await apiRequest("/api/system-settings", {
-          method: "PUT", 
-          body: JSON.stringify(updatedSettings),
-        });
+        const response = await apiRequest("PUT", "/api/system-settings", updatedSettings);
+        const result = await response.json();
         console.log('✅ Resultado:', result);
         return result;
       } catch (error) {
