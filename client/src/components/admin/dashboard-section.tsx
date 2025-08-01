@@ -600,48 +600,44 @@ export default function DashboardSection() {
                         <p className="text-sm text-gray-500">{appointment.client.phone}</p>
                       </div>
                       <div className="text-right">
-                        <div className="flex flex-col space-y-1">
-                          <div className="flex items-center justify-end space-x-2">
-                            <p className="font-semibold text-primary text-sm">
-                              R$ {parseFloat(appointment.price).toFixed(2).replace('.', ',')}
-                            </p>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="px-2 py-1 text-xs font-medium rounded-md border bg-white border-gray-200 text-[#1f55ed] hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-colors"
-                              onClick={() => handleViewDetails(appointment)}
-                            >
-                              <Edit className="w-3 h-3 mr-1" />
-                              Detalhes
-                            </Button>
-                          </div>
-                          <div className="flex space-x-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="inline-flex items-center justify-center gap-2 whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-9 px-3 py-1 text-xs font-medium rounded-md border transition-colors bg-white border-gray-200 hover:bg-green-50 hover:border-green-200 hover:text-green-700 text-[#15bd53]"
-                              onClick={() => handleCompleteAppointment(appointment)}
-                              disabled={appointment.status === 'completed'}
-                            >
-                              <Check className="w-3 h-3 mr-1" />
-                              {appointment.status === 'completed' ? 'Concluído' : 'Confirmar'}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="inline-flex items-center justify-center gap-2 whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-9 px-3 py-1 text-xs font-medium rounded-md border transition-colors bg-white border-gray-200 hover:bg-yellow-50 hover:border-yellow-200 hover:text-yellow-700 text-[#faa01e]"
-                              onClick={() => handleNoShowAppointment(appointment)}
-                              disabled={appointment.status === 'no_show' || appointment.status === 'completed'}
-                            >
-                              <X className="w-3 h-3 mr-1" />
-                              {appointment.status === 'no_show' ? 'Faltou' : 'Faltou'}
-                            </Button>
-                            {appointment.status === 'scheduled' && (
-                              <span className="inline-block px-2 py-1 bg-blue-50 border border-blue-200 text-blue-700 rounded-md font-medium text-xs">
-                                Agendado
-                              </span>
-                            )}
-                          </div>
+                        <div className="flex items-center justify-end space-x-2 mt-2">
+                          <p className="font-semibold text-primary text-sm">
+                            R$ {parseFloat(appointment.price).toFixed(2).replace('.', ',')}
+                          </p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="px-2 py-1 text-xs font-medium rounded-md border bg-white border-gray-200 text-[#1f55ed] hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-colors"
+                            onClick={() => handleViewDetails(appointment)}
+                          >
+                            <Edit className="w-3 h-3 mr-1" />
+                            Detalhes
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="inline-flex items-center justify-center gap-2 whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-9 px-3 py-1 text-xs font-medium rounded-md border transition-colors bg-white border-gray-200 hover:bg-green-50 hover:border-green-200 hover:text-green-700 text-[#15bd53]"
+                            onClick={() => handleCompleteAppointment(appointment)}
+                            disabled={appointment.status === 'completed'}
+                          >
+                            <Check className="w-3 h-3 mr-1" />
+                            {appointment.status === 'completed' ? 'Concluído' : 'Confirmar'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="inline-flex items-center justify-center gap-2 whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-9 px-3 py-1 text-xs font-medium rounded-md border transition-colors bg-white border-gray-200 hover:bg-yellow-50 hover:border-yellow-200 hover:text-yellow-700 text-[#faa01e]"
+                            onClick={() => handleNoShowAppointment(appointment)}
+                            disabled={appointment.status === 'no_show' || appointment.status === 'completed'}
+                          >
+                            <X className="w-3 h-3 mr-1" />
+                            {appointment.status === 'no_show' ? 'Faltou' : 'Faltou'}
+                          </Button>
+                          {appointment.status === 'scheduled' && (
+                            <span className="inline-block px-2 py-1 bg-blue-50 border border-blue-200 text-blue-700 rounded-md font-medium text-xs">
+                              Agendado
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
