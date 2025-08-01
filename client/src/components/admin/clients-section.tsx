@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { 
   Plus, 
   Filter, 
@@ -28,8 +28,7 @@ export default function ClientsSection() {
     name: "",
     cpf: "",
     phone: "",
-    email: "",
-    birthdate: ""
+    email: ""
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -97,19 +96,20 @@ export default function ClientsSection() {
     },
   });
 
-  const filteredClients = clients?.filter(client => 
-    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.cpf.includes(searchTerm) ||
-    client.phone.includes(searchTerm)
-  );
+  const filteredClients = searchTerm 
+    ? (clients as any[] || []).filter((client: any) => 
+        client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.cpf.includes(searchTerm) ||
+        client.phone.includes(searchTerm)
+      ) 
+    : (clients as any[] || []);
 
   const resetForm = () => {
     setClientForm({
       name: "",
       cpf: "",
       phone: "",
-      email: "",
-      birthdate: ""
+      email: ""
     });
   };
 
@@ -123,8 +123,7 @@ export default function ClientsSection() {
       name: client.name,
       cpf: client.cpf,
       phone: client.phone,
-      email: client.email || "",
-      birthdate: client.birthdate ? format(new Date(client.birthdate), "yyyy-MM-dd") : ""
+      email: client.email || ""
     });
     setEditingClient(client);
   };
@@ -143,8 +142,7 @@ export default function ClientsSection() {
       name: clientForm.name,
       cpf: clientForm.cpf,
       phone: clientForm.phone,
-      email: clientForm.email || undefined,
-      birthdate: clientForm.birthdate ? new Date(clientForm.birthdate) : undefined
+      email: clientForm.email || undefined
     };
 
     if (editingClient) {
@@ -310,6 +308,9 @@ export default function ClientsSection() {
             <DialogTitle>
               {editingClient ? "Editar Cliente" : "Nova Cliente"}
             </DialogTitle>
+            <DialogDescription>
+              {editingClient ? "Modifique as informações do cliente abaixo." : "Preencha os dados para cadastrar uma nova cliente."}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
@@ -349,15 +350,7 @@ export default function ClientsSection() {
                 placeholder="cliente@email.com"
               />
             </div>
-            <div>
-              <Label htmlFor="birthdate">Data de Nascimento</Label>
-              <Input
-                id="birthdate"
-                type="date"
-                value={clientForm.birthdate}
-                onChange={(e) => setClientForm(prev => ({ ...prev, birthdate: e.target.value }))}
-              />
-            </div>
+
             <div className="flex justify-end space-x-2 pt-4">
               <Button variant="outline" onClick={() => {
                 setIsNewClientOpen(false);

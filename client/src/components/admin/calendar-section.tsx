@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, Filter, Plus, Settings, Pause, Play, Edit, Trash2, X, Calendar, List } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, startOfWeek, endOfWeek, addDays, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -119,7 +119,7 @@ export default function CalendarSection() {
 
   // Filter appointments based on current filters
   const getFilteredAppointments = () => {
-    if (!appointments) return [];
+    if (!appointments || !Array.isArray(appointments)) return [];
     
     return appointments.filter((appointment: any) => {
       const statusMatch = filters.status === "all" || appointment.status === filters.status;
@@ -198,6 +198,9 @@ export default function CalendarSection() {
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Filtrar Agendamentos</DialogTitle>
+                    <DialogDescription>
+                      Filtre os agendamentos por status, serviço ou cliente para uma visualização mais específica.
+                    </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div>
@@ -224,7 +227,7 @@ export default function CalendarSection() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Todos os serviços</SelectItem>
-                          {services.map((service: any) => (
+                          {(services as any[] || []).map((service: any) => (
                             <SelectItem key={service.id} value={service.id.toString()}>
                               {service.name}
                             </SelectItem>
@@ -241,7 +244,7 @@ export default function CalendarSection() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Todos os clientes</SelectItem>
-                          {clients.map((client: any) => (
+                          {(clients as any[] || []).map((client: any) => (
                             <SelectItem key={client.id} value={client.id.toString()}>
                               {client.name}
                             </SelectItem>
@@ -263,6 +266,9 @@ export default function CalendarSection() {
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Novo Agendamento</DialogTitle>
+                    <DialogDescription>
+                      Crie um novo agendamento selecionando a data, horário, cliente e serviço.
+                    </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -291,7 +297,7 @@ export default function CalendarSection() {
                           <SelectValue placeholder="Selecione um cliente" />
                         </SelectTrigger>
                         <SelectContent>
-                          {clients.map((client: any) => (
+                          {(clients as any[] || []).map((client: any) => (
                             <SelectItem key={client.id} value={client.id.toString()}>
                               {client.name}
                             </SelectItem>
@@ -307,7 +313,7 @@ export default function CalendarSection() {
                           <SelectValue placeholder="Selecione um serviço" />
                         </SelectTrigger>
                         <SelectContent>
-                          {services.map((service: any) => (
+                          {(services as any[] || []).map((service: any) => (
                             <SelectItem key={service.id} value={service.id.toString()}>
                               {service.name} - R$ {service.price}
                             </SelectItem>
@@ -322,13 +328,14 @@ export default function CalendarSection() {
                       </Button>
                       <Button
                         onClick={() => {
-                          const selectedService = services.find(s => s.id.toString() === newAppointment.serviceId);
+                          const servicesList = services as any[] || [];
+                          const selectedService = servicesList.find((s: any) => s.id.toString() === newAppointment.serviceId);
                           const appointmentData = {
-                            clientId: parseInt(newAppointment.clientId),
-                            serviceId: parseInt(newAppointment.serviceId),
+                            clientId: newAppointment.clientId,
+                            serviceId: newAppointment.serviceId,
                             date: new Date(`${newAppointment.date}T${newAppointment.time}`),
                             status: newAppointment.status,
-                            price: selectedService?.price || 0
+                            price: selectedService?.price?.toString() || "0"
                           };
                           createAppointmentMutation.mutate(appointmentData);
                         }}
@@ -346,6 +353,9 @@ export default function CalendarSection() {
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
                     <DialogTitle>Editar Agendamento</DialogTitle>
+                    <DialogDescription>
+                      Modifique os detalhes do agendamento ou cancele-o se necessário.
+                    </DialogDescription>
                   </DialogHeader>
                   {selectedAppointment && (
                     <div className="space-y-4 py-4">
@@ -379,7 +389,7 @@ export default function CalendarSection() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {clients.map((client: any) => (
+                            {(clients as any[] || []).map((client: any) => (
                               <SelectItem key={client.id} value={client.id.toString()}>
                                 {client.name}
                               </SelectItem>
@@ -395,7 +405,7 @@ export default function CalendarSection() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {services.map((service: any) => (
+                            {(services as any[] || []).map((service: any) => (
                               <SelectItem key={service.id} value={service.id.toString()}>
                                 {service.name} - R$ {service.price}
                               </SelectItem>
