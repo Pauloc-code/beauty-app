@@ -323,13 +323,19 @@ export class DatabaseStorage implements IStorage {
     newClients: number;
     occupancyRate: number;
   }> {
+    // Get all appointments and filter by today's date using same logic as frontend
+    const allAppointments = await this.getAppointments();
     const today = new Date();
-    const startOfDay = new Date(today);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(today);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    const todayAppointmentsResult = await this.getAppointmentsByDate(today);
+    
+    const todayAppointmentsResult = allAppointments.filter(appointment => {
+      const appointmentDate = new Date(appointment.date);
+      return (
+        appointmentDate.getDate() === today.getDate() &&
+        appointmentDate.getMonth() === today.getMonth() &&
+        appointmentDate.getFullYear() === today.getFullYear()
+      );
+    });
+    
     const todayAppointments = todayAppointmentsResult.length;
 
     const todayRevenue = todayAppointmentsResult

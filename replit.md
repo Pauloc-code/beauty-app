@@ -24,7 +24,7 @@ Preferred communication style: Simple, everyday language.
 - Admin panel fully functional with ALL core features implemented and working
 - Settings save system completely resolved (apiRequest parameter order corrected)
 - Holiday display working in calendar with national and regional Brazilian holidays
-- Dashboard showing today's appointments correctly with proper date filtering
+- Dashboard today's appointments and statistics both showing consistent counts (FIXED)
 - Gallery management with image upload from device files (not URLs)
 - Calendar with multiple view modes and appointment editing
 - Filter system working correctly for appointment management
