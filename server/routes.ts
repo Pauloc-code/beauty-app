@@ -429,6 +429,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Recent activities endpoint
+  app.get("/api/activities/recent", async (req, res) => {
+    try {
+      const activities = await storage.getRecentActivities();
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching recent activities:", error);
+      res.status(500).json({ message: "Failed to fetch recent activities" });
+    }
+  });
+
   // System Settings routes
   app.get("/api/system-settings", async (req, res) => {
     try {

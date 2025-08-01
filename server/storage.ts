@@ -73,6 +73,17 @@ export interface IStorage {
     occupancyRate: number;
   }>;
 
+  // Activities methods
+  getRecentActivities(): Promise<Array<{
+    id: string;
+    type: 'appointment' | 'client' | 'gallery';
+    action: string;
+    description: string;
+    timestamp: Date;
+    icon: string;
+    iconBg: string;
+  }>>;
+
   // System Settings methods
   getSystemSettings(): Promise<SystemSettings[]>;
   getSystemSetting(key: string): Promise<SystemSettings | undefined>;
@@ -424,6 +435,122 @@ export class DatabaseStorage implements IStorage {
       ...themeData,
       updatedAt: new Date().toISOString()
     };
+  }
+
+  async getRecentActivities(): Promise<Array<{
+    id: string;
+    type: 'appointment' | 'client' | 'gallery';
+    action: string;
+    description: string;
+    timestamp: Date;
+    icon: string;
+    iconBg: string;
+  }>> {
+    const activities: Array<{
+      id: string;
+      type: 'appointment' | 'client' | 'gallery';
+      action: string;
+      description: string;
+      timestamp: Date;
+      icon: string;
+      iconBg: string;
+    }> = [];
+
+    try {
+      // Get recent appointments (last 10)
+      const recentAppointments = await db
+        .select({
+          id: appointments.id,
+          status: appointments.status,
+          clientName: clients.name,
+          serviceName: services.name,
+          updatedAt: appointments.updatedAt,
+          createdAt: appointments.createdAt,
+        })
+        .from(appointments)
+        .leftJoin(clients, eq(appointments.clientId, clients.id))
+        .leftJoin(services, eq(appointments.serviceId, services.id))
+        .orderBy(desc(appointments.updatedAt))
+        .limit(5);
+
+      for (const appointment of recentAppointments) {
+        let action = 'criado';
+        let icon = 'Calendar';
+        let iconBg = 'bg-blue-100';
+        
+        if (appointment.status === 'completed') {
+          action = 'concluído';
+          icon = 'Check';
+          iconBg = 'bg-green-100';
+        } else if (appointment.status === 'no_show') {
+          action = 'faltou';
+          icon = 'X';
+          iconBg = 'bg-red-100';
+        } else if (appointment.status === 'confirmed') {
+          action = 'confirmado';
+          icon = 'Check';
+          iconBg = 'bg-green-100';
+        }
+
+        activities.push({
+          id: appointment.id,
+          type: 'appointment',
+          action,
+          description: `Agendamento ${action}: ${appointment.clientName} - ${appointment.serviceName}`,
+          timestamp: appointment.updatedAt || appointment.createdAt,
+          icon,
+          iconBg
+        });
+      }
+
+      // Get recent clients (last 5)
+      const recentClients = await db
+        .select()
+        .from(clients)
+        .orderBy(desc(clients.createdAt))
+        .limit(3);
+
+      for (const client of recentClients) {
+        activities.push({
+          id: client.id,
+          type: 'client',
+          action: 'cadastrado',
+          description: `Nova cliente cadastrada: ${client.name}`,
+          timestamp: client.createdAt,
+          icon: 'UserPlus',
+          iconBg: 'bg-blue-100'
+        });
+      }
+
+      // Get recent gallery images (last 3)
+      const recentImages = await db
+        .select()
+        .from(galleryImages)
+        .orderBy(desc(galleryImages.createdAt))
+        .limit(2);
+
+      for (const image of recentImages) {
+        activities.push({
+          id: image.id,
+          type: 'gallery',
+          action: 'adicionada',
+          description: `Foto adicionada à galeria: ${image.title}`,
+          timestamp: image.createdAt,
+          icon: 'Camera',
+          iconBg: 'bg-purple-100'
+        });
+      }
+
+      // Sort all activities by timestamp (most recent first)
+      activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+      // Return only the 6 most recent activities
+      return activities.slice(0, 6);
+
+    } catch (error) {
+      console.error("Error fetching recent activities:", error);
+      return [];
+    }
   }
 }
 

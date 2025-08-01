@@ -82,6 +82,10 @@ export default function DashboardSection() {
     queryKey: ["/api/services"],
   });
 
+  const { data: recentActivities = [] } = useQuery({
+    queryKey: ["/api/activities/recent"],
+  });
+
   // Gallery form
   const galleryForm = useForm({
     resolver: zodResolver(z.object({
@@ -168,6 +172,7 @@ export default function DashboardSection() {
       clientForm.reset();
       setNewClientOpen(false);
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activities/recent"] });
     },
     onError: (error) => {
       console.error("Error creating client:", error);
@@ -203,6 +208,7 @@ export default function DashboardSection() {
       galleryForm.reset();
       setGalleryOpen(false);
       queryClient.invalidateQueries({ queryKey: ["/api/gallery"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activities/recent"] });
     },
     onError: (error) => {
       console.error("Error uploading gallery image:", error);
@@ -246,6 +252,7 @@ export default function DashboardSection() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats/today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activities/recent"] });
       setNewAppointmentOpen(false);
       appointmentForm.reset();
       toast({
@@ -280,6 +287,7 @@ export default function DashboardSection() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats/today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activities/recent"] });
       toast({
         title: "Sucesso",
         description: "Status do agendamento atualizado!",
@@ -705,35 +713,52 @@ export default function DashboardSection() {
             <CardContent className="p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Atividades Recentes</h3>
               <div className="space-y-3">
-                <div className="flex items-start space-x-3">
-                  <div className="p-2 bg-green-100 rounded-full">
-                    <Check className="w-3 h-3 text-green-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-900">Agendamento confirmado</p>
-                    <p className="text-xs text-gray-500">há 5 minutos</p>
-                  </div>
-                </div>
+                {recentActivities.length > 0 ? (
+                  recentActivities.map((activity: any) => {
+                    const IconComponent = activity.icon === 'Check' ? Check :
+                                        activity.icon === 'UserPlus' ? UserPlus :
+                                        activity.icon === 'Camera' ? Camera :
+                                        activity.icon === 'Calendar' ? Calendar :
+                                        activity.icon === 'X' ? X : Check;
+                    
+                    const getTimeAgo = (timestamp: string) => {
+                      const now = new Date();
+                      const activityTime = new Date(timestamp);
+                      const diffInMinutes = Math.floor((now.getTime() - activityTime.getTime()) / (1000 * 60));
+                      
+                      if (diffInMinutes < 1) return 'agora mesmo';
+                      if (diffInMinutes < 60) return `há ${diffInMinutes} min`;
+                      
+                      const diffInHours = Math.floor(diffInMinutes / 60);
+                      if (diffInHours < 24) return `há ${diffInHours}h`;
+                      
+                      const diffInDays = Math.floor(diffInHours / 24);
+                      return `há ${diffInDays} dias`;
+                    };
 
-                <div className="flex items-start space-x-3">
-                  <div className="p-2 bg-blue-100 rounded-full">
-                    <UserPlus className="w-3 h-3 text-blue-600" />
+                    return (
+                      <div key={activity.id} className="flex items-start space-x-3">
+                        <div className={`p-2 rounded-full ${activity.iconBg}`}>
+                          <IconComponent className={`w-3 h-3 ${
+                            activity.iconBg.includes('green') ? 'text-green-600' :
+                            activity.iconBg.includes('blue') ? 'text-blue-600' :
+                            activity.iconBg.includes('purple') ? 'text-purple-600' :
+                            activity.iconBg.includes('red') ? 'text-red-600' :
+                            'text-gray-600'
+                          }`} />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-900">{activity.description}</p>
+                          <p className="text-xs text-gray-500">{getTimeAgo(activity.timestamp)}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-gray-500">Nenhuma atividade recente</p>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-900">Nova cliente cadastrada</p>
-                    <p className="text-xs text-gray-500">há 1 hora</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-3">
-                  <div className="p-2 bg-purple-100 rounded-full">
-                    <Camera className="w-3 h-3 text-purple-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-900">3 fotos adicionadas à galeria</p>
-                    <p className="text-xs text-gray-500">há 2 horas</p>
-                  </div>
-                </div>
+                )}
               </div>
             </CardContent>
           </Card>
