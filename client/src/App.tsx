@@ -12,6 +12,9 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={AdminPanel} />
+      <Route path="/app" component={MobileApp} />
+      <Route path="/cliente" component={MobileApp} />
+      <Route path="/mobile" component={MobileApp} />
       <Route component={NotFound} />
     </Switch>
   );
