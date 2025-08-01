@@ -216,7 +216,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/appointments/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const updateData = req.body;
+      const updateData = { ...req.body };
+      
+      // Convert date string to Date object if present
+      if (updateData.date && typeof updateData.date === 'string') {
+        updateData.date = new Date(updateData.date);
+      }
       
       console.log("Updating appointment:", id, updateData);
       const updatedAppointment = await storage.updateAppointment(id, updateData);

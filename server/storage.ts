@@ -253,9 +253,26 @@ export class DatabaseStorage implements IStorage {
 
   async updateAppointment(id: string, updateAppointment: any): Promise<Appointment> {
     console.log("Updating appointment in DB:", id, updateAppointment);
+    
+    // Convert date string to Date object if needed
+    const processedData = {
+      ...updateAppointment,
+      date: updateAppointment.date ? new Date(updateAppointment.date) : undefined,
+      updatedAt: new Date()
+    };
+    
+    // Remove undefined values
+    Object.keys(processedData).forEach(key => {
+      if (processedData[key] === undefined) {
+        delete processedData[key];
+      }
+    });
+    
+    console.log("Processed data for DB:", processedData);
+    
     const [appointment] = await db
       .update(appointments)
-      .set({ ...updateAppointment, updatedAt: new Date() })
+      .set(processedData)
       .where(eq(appointments.id, id))
       .returning();
     
