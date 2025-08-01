@@ -597,7 +597,7 @@ export default function DashboardSection() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="px-2 py-1 text-xs font-medium rounded-md border bg-white border-gray-200 text-[#295ef2] hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-colors"
+                              className="px-2 py-1 text-xs font-medium rounded-md border bg-white border-gray-200 text-[#1f55ed] hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-colors"
                               onClick={() => handleViewDetails(appointment)}
                             >
                               <Edit className="w-3 h-3 mr-1" />
