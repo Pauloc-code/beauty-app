@@ -576,7 +576,7 @@ export default function DashboardSection() {
               ) : (todayAppointments as any[])?.length ? (
                 <div className="space-y-4">
                   {(todayAppointments as any[]).map((appointment: any) => (
-                    <div key={appointment.id} className="flex items-center space-x-4 p-4 rounded-lg bg-[#ffccd9]">
+                    <div key={appointment.id} className="flex items-center space-x-4 p-4 rounded-lg bg-[#ffe3ee]">
                       <div className="text-center">
                         <p className="text-sm font-medium text-gray-600">
                           {format(new Date(appointment.date), "HH:mm")}
@@ -1136,7 +1136,6 @@ export default function DashboardSection() {
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Modal Detalhes do Agendamento */}
       <Dialog open={appointmentDetailOpen} onOpenChange={setAppointmentDetailOpen}>
         <DialogContent className="sm:max-w-md">
