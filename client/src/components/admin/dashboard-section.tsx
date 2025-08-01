@@ -43,13 +43,20 @@ export default function DashboardSection() {
     queryKey: ["/api/stats/today"],
   });
 
-  const { data: todayAppointments, isLoading: appointmentsLoading } = useQuery({
-    queryKey: ["/api/appointments", new Date().toISOString().split('T')[0]],
-    queryFn: async () => {
-      const response = await apiRequest("GET", `/api/appointments?date=${new Date().toISOString().split('T')[0]}`);
-      return response;
-    },
+  const { data: allAppointments, isLoading: appointmentsLoading } = useQuery({
+    queryKey: ["/api/appointments"],
   });
+
+  // Filtrar agendamentos do dia atual no cliente
+  const todayAppointments = allAppointments?.filter((appointment: any) => {
+    const appointmentDate = new Date(appointment.date);
+    const today = new Date();
+    return (
+      appointmentDate.getDate() === today.getDate() &&
+      appointmentDate.getMonth() === today.getMonth() &&
+      appointmentDate.getFullYear() === today.getFullYear()
+    );
+  }) || [];
 
   const { data: clients = [] } = useQuery({
     queryKey: ["/api/clients"],
