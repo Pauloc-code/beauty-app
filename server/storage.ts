@@ -329,13 +329,11 @@ export class DatabaseStorage implements IStorage {
     
     const todayAppointmentsResult = allAppointments.filter(appointment => {
       const appointmentDate = new Date(appointment.date);
-      return (
-        appointmentDate.getDate() === today.getDate() &&
-        appointmentDate.getMonth() === today.getMonth() &&
-        appointmentDate.getFullYear() === today.getFullYear()
-      );
+      const appointmentUTC = new Date(appointmentDate.getUTCFullYear(), appointmentDate.getUTCMonth(), appointmentDate.getUTCDate());
+      const todayUTC = new Date(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+      
+      return appointmentUTC.getTime() === todayUTC.getTime();
     });
-    
     const todayAppointments = todayAppointmentsResult.length;
 
     const todayRevenue = todayAppointmentsResult

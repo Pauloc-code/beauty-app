@@ -47,15 +47,16 @@ export default function DashboardSection() {
     queryKey: ["/api/appointments"],
   });
 
-  // Filtrar agendamentos do dia atual no cliente
+  // Filtrar agendamentos do dia atual no cliente usando UTC para evitar problemas de fuso horário
   const todayAppointments = allAppointments?.filter((appointment: any) => {
     const appointmentDate = new Date(appointment.date);
     const today = new Date();
-    return (
-      appointmentDate.getDate() === today.getDate() &&
-      appointmentDate.getMonth() === today.getMonth() &&
-      appointmentDate.getFullYear() === today.getFullYear()
-    );
+    
+    // Comparar apenas as datas em UTC, ignorando horários
+    const appointmentUTC = new Date(appointmentDate.getUTCFullYear(), appointmentDate.getUTCMonth(), appointmentDate.getUTCDate());
+    const todayUTC = new Date(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+    
+    return appointmentUTC.getTime() === todayUTC.getTime();
   }) || [];
 
   const { data: clients = [] } = useQuery({
