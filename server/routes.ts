@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertClientSchema, insertServiceSchema, insertAppointmentSchema, insertGalleryImageSchema, insertTransactionSchema, systemSettings, appointments } from "@shared/schema";
+import { insertClientSchema, insertServiceSchema, insertAppointmentSchema, insertAppointmentServiceSchema, insertGalleryImageSchema, insertTransactionSchema, systemSettings, appointments } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -261,6 +261,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Failed to delete appointment" });
+    }
+  });
+
+  // Appointment Services routes
+  app.get("/api/appointments/:appointmentId/services", async (req, res) => {
+    try {
+      const services = await storage.getAppointmentServices(req.params.appointmentId);
+      res.json(services);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch appointment services" });
+    }
+  });
+
+  app.post("/api/appointments/:appointmentId/services", async (req, res) => {
+    try {
+      const serviceData = insertAppointmentServiceSchema.parse({
+        ...req.body,
+        appointmentId: req.params.appointmentId
+      });
+      const service = await storage.addAppointmentService(serviceData);
+      res.status(201).json(service);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid service data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to add service to appointment" });
+    }
+  });
+
+  app.put("/api/appointment-services/:id", async (req, res) => {
+    try {
+      const serviceData = insertAppointmentServiceSchema.partial().parse(req.body);
+      const service = await storage.updateAppointmentService(req.params.id, serviceData);
+      res.json(service);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid service data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update appointment service" });
+    }
+  });
+
+  app.delete("/api/appointment-services/:id", async (req, res) => {
+    try {
+      await storage.removeAppointmentService(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to remove service from appointment" });
     }
   });
 

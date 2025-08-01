@@ -23,7 +23,10 @@ import {
   Camera,
   Edit,
   X,
-  Check
+  Check,
+  Plus,
+  Trash2,
+  Settings
 } from "lucide-react";
 import { format } from "date-fns";
 import { fromZonedTime } from "date-fns-tz";
@@ -39,6 +42,8 @@ export default function DashboardSection() {
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const [appointmentDetailOpen, setAppointmentDetailOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<any>(null);
+  const [editServicesOpen, setEditServicesOpen] = useState(false);
+  const [editingServiceAppointment, setEditingServiceAppointment] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -49,6 +54,8 @@ export default function DashboardSection() {
   const { data: allAppointments, isLoading: appointmentsLoading } = useQuery({
     queryKey: ["/api/appointments"],
   });
+
+
 
   // Buscar configurações do sistema para usar o fuso horário correto
   const { data: systemSettings } = useQuery({
@@ -365,6 +372,11 @@ export default function DashboardSection() {
     }
   };
 
+  const handleEditServices = (appointment: any) => {
+    setEditingServiceAppointment(appointment);
+    setEditServicesOpen(true);
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Stats Overview */}
@@ -612,6 +624,15 @@ export default function DashboardSection() {
                           >
                             <Edit className="w-3 h-3 mr-1" />
                             Detalhes
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="px-2 py-1 text-xs font-medium rounded-md border bg-white border-gray-200 text-[#9333ea] hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 transition-colors"
+                            onClick={() => handleEditServices(appointment)}
+                          >
+                            <Settings className="w-3 h-3 mr-1" />
+                            Serviços
                           </Button>
                           <Button
                             size="sm"
@@ -1312,6 +1333,220 @@ export default function DashboardSection() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Modal Editar Serviços do Agendamento */}
+      <Dialog open={editServicesOpen} onOpenChange={setEditServicesOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Serviços do Agendamento</DialogTitle>
+            <p className="text-sm text-gray-600">
+              {editingServiceAppointment && `Cliente: ${editingServiceAppointment.client?.name}`}
+            </p>
+          </DialogHeader>
+          <AppointmentServicesEditor
+            appointmentId={editingServiceAppointment?.id}
+            onClose={() => setEditServicesOpen(false)}
+            services={services || []}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// Componente para edição de múltiplos serviços do agendamento
+function AppointmentServicesEditor({ 
+  appointmentId, 
+  onClose, 
+  services 
+}: { 
+  appointmentId: string; 
+  onClose: () => void; 
+  services: any[];
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // Buscar serviços atuais do agendamento
+  const { data: appointmentServices, isLoading } = useQuery({
+    queryKey: [`/api/appointments/${appointmentId}/services`],
+    enabled: !!appointmentId,
+  });
+
+  // Mutation para adicionar serviço
+  const addServiceMutation = useMutation({
+    mutationFn: async (data: { serviceId: string; price: string }) => {
+      return await apiRequest("POST", `/api/appointments/${appointmentId}/services`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/appointments/${appointmentId}/services`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/today"] });
+      toast({
+        title: "Sucesso",
+        description: "Serviço adicionado com sucesso!",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro",
+        description: "Erro ao adicionar serviço",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Mutation para remover serviço
+  const removeServiceMutation = useMutation({
+    mutationFn: async (serviceId: string) => {
+      return await apiRequest("DELETE", `/api/appointment-services/${serviceId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/appointments/${appointmentId}/services`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/today"] });
+      toast({
+        title: "Sucesso",
+        description: "Serviço removido com sucesso!",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro",
+        description: "Erro ao remover serviço",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Form para adicionar novo serviço
+  const addServiceForm = useForm({
+    resolver: zodResolver(z.object({
+      serviceId: z.string().min(1, "Selecione um serviço"),
+      price: z.string().min(1, "Preço é obrigatório")
+    })),
+    defaultValues: {
+      serviceId: "",
+      price: ""
+    }
+  });
+
+  const handleAddService = (data: any) => {
+    addServiceMutation.mutate(data);
+    addServiceForm.reset();
+  };
+
+  if (isLoading) {
+    return <div className="p-4 text-center">Carregando serviços...</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Lista de serviços atuais */}
+      <div>
+        <h4 className="font-medium text-gray-900 mb-3">Serviços Atuais</h4>
+        {appointmentServices?.length > 0 ? (
+          <div className="space-y-2">
+            {appointmentServices.map((item: any) => (
+              <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="font-medium text-gray-900">{item.service?.name}</p>
+                  <p className="text-sm text-gray-600">R$ {parseFloat(item.price).toFixed(2).replace('.', ',')}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => removeServiceMutation.mutate(item.id)}
+                  disabled={removeServiceMutation.isPending}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500 text-center py-4">Nenhum serviço adicional</p>
+        )}
+      </div>
+
+      {/* Formulário para adicionar novo serviço */}
+      <div className="border-t pt-4">
+        <h4 className="font-medium text-gray-900 mb-3">Adicionar Serviço</h4>
+        <Form {...addServiceForm}>
+          <form onSubmit={addServiceForm.handleSubmit(handleAddService)} className="space-y-3">
+            <FormField
+              control={addServiceForm.control}
+              name="serviceId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Serviço</FormLabel>
+                  <Select onValueChange={(value) => {
+                    field.onChange(value);
+                    // Auto-preencher preço baseado no serviço selecionado
+                    const selectedService = services.find((s: any) => s.id === value);
+                    if (selectedService) {
+                      addServiceForm.setValue("price", selectedService.price);
+                    }
+                  }} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um serviço" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {services.map((service: any) => (
+                        <SelectItem key={service.id} value={service.id}>
+                          {service.name} - R$ {parseFloat(service.price).toFixed(2).replace('.', ',')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={addServiceForm.control}
+              name="price"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Preço</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                className="flex-1"
+              >
+                Fechar
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1"
+                disabled={addServiceMutation.isPending}
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                {addServiceMutation.isPending ? "Adicionando..." : "Adicionar"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </div>
     </div>
   );
 }

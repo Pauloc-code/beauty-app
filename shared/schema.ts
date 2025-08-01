@@ -49,6 +49,14 @@ export const appointments = pgTable("appointments", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const appointmentServices = pgTable("appointment_services", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  appointmentId: varchar("appointment_id").notNull().references(() => appointments.id, { onDelete: "cascade" }),
+  serviceId: varchar("service_id").notNull().references(() => services.id),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const galleryImages = pgTable("gallery_images", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   url: text("url").notNull(),
@@ -84,6 +92,7 @@ export const clientsRelations = relations(clients, ({ many }) => ({
 
 export const servicesRelations = relations(services, ({ many }) => ({
   appointments: many(appointments),
+  appointmentServices: many(appointmentServices),
 }));
 
 export const appointmentsRelations = relations(appointments, ({ one, many }) => ({
@@ -96,6 +105,18 @@ export const appointmentsRelations = relations(appointments, ({ one, many }) => 
     references: [services.id],
   }),
   transactions: many(transactions),
+  appointmentServices: many(appointmentServices),
+}));
+
+export const appointmentServicesRelations = relations(appointmentServices, ({ one }) => ({
+  appointment: one(appointments, {
+    fields: [appointmentServices.appointmentId],
+    references: [appointments.id],
+  }),
+  service: one(services, {
+    fields: [appointmentServices.serviceId],
+    references: [services.id],
+  }),
 }));
 
 export const transactionsRelations = relations(transactions, ({ one }) => ({
@@ -130,6 +151,11 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
   updatedAt: true,
 });
 
+export const insertAppointmentServiceSchema = createInsertSchema(appointmentServices).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertGalleryImageSchema = createInsertSchema(galleryImages).omit({
   id: true,
   createdAt: true,
@@ -157,6 +183,9 @@ export type Service = typeof services.$inferSelect;
 
 export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 export type Appointment = typeof appointments.$inferSelect;
+
+export type InsertAppointmentService = z.infer<typeof insertAppointmentServiceSchema>;
+export type AppointmentService = typeof appointmentServices.$inferSelect;
 
 export type InsertGalleryImage = z.infer<typeof insertGalleryImageSchema>;
 export type GalleryImage = typeof galleryImages.$inferSelect;

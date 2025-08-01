@@ -7,6 +7,8 @@ import {
   type InsertService,
   type Appointment,
   type InsertAppointment,
+  type AppointmentService,
+  type InsertAppointmentService,
   type AppointmentWithDetails,
   type GalleryImage,
   type InsertGalleryImage,
@@ -18,6 +20,7 @@ import {
   clients,
   services,
   appointments,
+  appointmentServices,
   galleryImages,
   transactions,
   systemSettings
@@ -55,6 +58,12 @@ export interface IStorage {
   createAppointment(appointment: InsertAppointment): Promise<Appointment>;
   updateAppointment(id: string, appointment: Partial<InsertAppointment>): Promise<Appointment>;
   deleteAppointment(id: string): Promise<void>;
+
+  // Appointment Services methods
+  getAppointmentServices(appointmentId: string): Promise<(AppointmentService & { service: Service })[]>;
+  addAppointmentService(appointmentService: InsertAppointmentService): Promise<AppointmentService>;
+  updateAppointmentService(id: string, appointmentService: Partial<InsertAppointmentService>): Promise<AppointmentService>;
+  removeAppointmentService(id: string): Promise<void>;
 
   // Gallery methods
   getGalleryImages(): Promise<GalleryImage[]>;
@@ -298,6 +307,43 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAppointment(id: string): Promise<void> {
     await db.delete(appointments).where(eq(appointments.id, id));
+  }
+
+  // Appointment Services methods
+  async getAppointmentServices(appointmentId: string): Promise<(AppointmentService & { service: Service })[]> {
+    return await db
+      .select({
+        id: appointmentServices.id,
+        appointmentId: appointmentServices.appointmentId,
+        serviceId: appointmentServices.serviceId,
+        price: appointmentServices.price,
+        createdAt: appointmentServices.createdAt,
+        service: services
+      })
+      .from(appointmentServices)
+      .leftJoin(services, eq(appointmentServices.serviceId, services.id))
+      .where(eq(appointmentServices.appointmentId, appointmentId));
+  }
+
+  async addAppointmentService(appointmentService: InsertAppointmentService): Promise<AppointmentService> {
+    const [created] = await db
+      .insert(appointmentServices)
+      .values(appointmentService)
+      .returning();
+    return created;
+  }
+
+  async updateAppointmentService(id: string, appointmentService: Partial<InsertAppointmentService>): Promise<AppointmentService> {
+    const [updated] = await db
+      .update(appointmentServices)
+      .set(appointmentService)
+      .where(eq(appointmentServices.id, id))
+      .returning();
+    return updated;
+  }
+
+  async removeAppointmentService(id: string): Promise<void> {
+    await db.delete(appointmentServices).where(eq(appointmentServices.id, id));
   }
 
   async getGalleryImages(): Promise<GalleryImage[]> {
