@@ -37,6 +37,8 @@ export default function DashboardSection() {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [appointmentDetailOpen, setAppointmentDetailOpen] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -113,6 +115,22 @@ export default function DashboardSection() {
       notes: ""
     },
     mode: "onChange"
+  });
+
+  // Edit appointment form
+  const editAppointmentForm = useForm({
+    resolver: zodResolver(z.object({
+      date: z.string().min(1, "Data é obrigatória"),
+      time: z.string().min(1, "Horário é obrigatório"),
+      notes: z.string().optional(),
+      status: z.string().optional()
+    })),
+    defaultValues: {
+      date: "",
+      time: "",
+      notes: "",
+      status: ""
+    }
   });
 
   // Create client form
@@ -246,6 +264,15 @@ export default function DashboardSection() {
   const updateAppointmentMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
       console.log("Updating appointment:", id, data);
+      
+      // Se data e time foram fornecidos, converter para UTC
+      if (data.date && data.time) {
+        const timezone = systemSettings?.timezone || 'America/Sao_Paulo';
+        const localDateTimeStr = `${data.date}T${data.time}:00`;
+        const utcDate = fromZonedTime(localDateTimeStr, timezone);
+        data.date = utcDate;
+      }
+      
       return await apiRequest("PUT", `/api/appointments/${id}`, data);
     },
     onSuccess: () => {
@@ -290,6 +317,40 @@ export default function DashboardSection() {
       });
       setPaymentModalOpen(false);
       setSelectedAppointment(null);
+    }
+  };
+
+  const handleViewDetails = (appointment: any) => {
+    setEditingAppointment(appointment);
+    
+    // Converter data UTC de volta para local para exibição
+    const appointmentDate = new Date(appointment.date);
+    const timezone = systemSettings?.timezone || 'America/Sao_Paulo';
+    const localDateTime = new Date(appointmentDate.toLocaleString("en-US", { timeZone: timezone }));
+    
+    editAppointmentForm.reset({
+      date: localDateTime.toISOString().split('T')[0],
+      time: format(localDateTime, "HH:mm"),
+      notes: appointment.notes || "",
+      status: appointment.status
+    });
+    
+    setAppointmentDetailOpen(true);
+  };
+
+  const handleSaveAppointmentDetails = (data: any) => {
+    if (editingAppointment) {
+      updateAppointmentMutation.mutate({
+        id: editingAppointment.id,
+        data: data
+      });
+      setAppointmentDetailOpen(false);
+      setEditingAppointment(null);
+      editAppointmentForm.reset();
+      toast({
+        title: "Sucesso",
+        description: "Agendamento atualizado com sucesso!"
+      });
     }
   };
 
@@ -533,6 +594,15 @@ export default function DashboardSection() {
                         </p>
                         <div className="flex flex-col space-y-1 mt-2">
                           <div className="flex space-x-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="px-2 py-1 text-xs font-medium rounded-md border bg-white border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-colors"
+                              onClick={() => handleViewDetails(appointment)}
+                            >
+                              <Edit className="w-3 h-3 mr-1" />
+                              Detalhes
+                            </Button>
                             <Button
                               size="sm"
                               variant="outline"
@@ -1064,6 +1134,131 @@ export default function DashboardSection() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Detalhes do Agendamento */}
+      <Dialog open={appointmentDetailOpen} onOpenChange={setAppointmentDetailOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Agendamento</DialogTitle>
+            <p className="text-sm text-gray-600">
+              Visualize e edite as informações do agendamento de {editingAppointment?.client?.name}
+            </p>
+          </DialogHeader>
+          <Form {...editAppointmentForm}>
+            <form onSubmit={editAppointmentForm.handleSubmit(
+              (data) => {
+                console.log("Updating appointment with data:", data);
+                handleSaveAppointmentDetails(data);
+              },
+              (errors) => {
+                console.log("Edit appointment form validation errors:", errors);
+              }
+            )} className="space-y-4">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="font-medium text-gray-900">{editingAppointment?.client?.name}</p>
+                <p className="text-sm text-gray-600">{editingAppointment?.service?.name}</p>
+                <p className="text-sm text-gray-500">{editingAppointment?.client?.phone}</p>
+                <p className="text-primary font-semibold">
+                  R$ {editingAppointment?.price ? parseFloat(editingAppointment.price).toFixed(2).replace('.', ',') : '0,00'}
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={editAppointmentForm.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Data</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editAppointmentForm.control}
+                  name="time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Horário</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={editAppointmentForm.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="scheduled">Agendado</SelectItem>
+                        <SelectItem value="completed">Concluído</SelectItem>
+                        <SelectItem value="no_show">Faltou</SelectItem>
+                        <SelectItem value="cancelled">Cancelado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={editAppointmentForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Observações</FormLabel>
+                    <FormControl>
+                      <textarea 
+                        className="w-full mt-1 p-2 border rounded-md h-20 text-sm resize-none"
+                        placeholder="Observações sobre o agendamento..."
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    setAppointmentDetailOpen(false);
+                    setEditingAppointment(null);
+                    editAppointmentForm.reset();
+                  }}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="flex-1"
+                  disabled={updateAppointmentMutation.isPending}
+                >
+                  {updateAppointmentMutation.isPending ? "Salvando..." : "Salvar Alterações"}
+                </Button>
+              </div>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>
