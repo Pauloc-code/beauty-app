@@ -1491,10 +1491,6 @@ function AppointmentServicesEditor({
     setEditingMainService(false);
   };
 
-  if (isLoading) {
-    return <div className="p-4 text-center">Carregando serviços...</div>;
-  }
-
   // Calcular valor total de todos os serviços
   const totalValue = useMemo(() => {
     let total = 0;
@@ -1511,6 +1507,10 @@ function AppointmentServicesEditor({
     
     return total;
   }, [currentAppointment, appointmentServices]);
+
+  if (isLoading) {
+    return <div className="p-4 text-center">Carregando serviços...</div>;
+  }
 
   return (
     <div className="space-y-4">
