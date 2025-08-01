@@ -606,11 +606,7 @@ export default function DashboardSection() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className={`px-3 py-1 text-xs font-medium rounded-md border transition-colors ${
-                                appointment.status === 'completed' 
-                                  ? 'bg-green-50 border-green-200 text-green-700' 
-                                  : 'bg-white border-gray-200 text-gray-600 hover:bg-green-50 hover:border-green-200 hover:text-green-700'
-                              }`}
+                              className="inline-flex items-center justify-center gap-2 whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-9 px-3 py-1 text-xs font-medium rounded-md border transition-colors bg-white border-gray-200 hover:bg-green-50 hover:border-green-200 hover:text-green-700 text-[#15bd53]"
                               onClick={() => handleCompleteAppointment(appointment)}
                               disabled={appointment.status === 'completed'}
                             >
