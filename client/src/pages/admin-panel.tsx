@@ -75,35 +75,39 @@ export default function AdminPanel() {
       {/* Navigation Toggle for Desktop */}
       <div className="sticky top-0 bg-white shadow-sm z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-center space-x-8 border-b border-gray-200">
-            <Button
-              variant="ghost"
-              className="py-4 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              onClick={() => setLocation("/")}
-            >
-              <i className="fas fa-mobile-alt mr-2"></i>App Mobile (Cliente)
-            </Button>
-            <button className="py-4 px-6 text-sm font-medium border-b-2 border-primary text-primary">
-              <i className="fas fa-desktop mr-2"></i>Painel Administrativo
-            </button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="py-2 px-4 text-xs mr-2"
-              onClick={handleGenerateTestData}
-              disabled={isGeneratingTestData}
-            >
-              {isGeneratingTestData ? "Gerando..." : "🧪 Dados de Teste"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="py-2 px-4 text-xs"
-              onClick={handleRunAdminTests}
-              disabled={isRunningTests}
-            >
-              {isRunningTests ? "Testando..." : "🔧 Teste Admin"}
-            </Button>
+          <div className="flex justify-between items-center border-b border-gray-200">
+            <div className="flex space-x-8">
+              <button className="py-4 px-6 text-sm font-medium border-b-2 border-primary text-primary">
+                <i className="fas fa-desktop mr-2"></i>Painel Administrativo
+              </button>
+              <Button
+                variant="ghost"
+                className="py-4 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                onClick={() => setLocation("/app")}
+              >
+                <i className="fas fa-mobile-alt mr-2"></i>App Mobile (Cliente)
+              </Button>
+            </div>
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="outline"
+                size="sm"
+                className="py-2 px-4 text-xs mr-2"
+                onClick={handleGenerateTestData}
+                disabled={isGeneratingTestData}
+              >
+                {isGeneratingTestData ? "Gerando..." : "🧪 Dados de Teste"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="py-2 px-4 text-xs"
+                onClick={handleRunAdminTests}
+                disabled={isRunningTests}
+              >
+                {isRunningTests ? "Testando..." : "🔧 Teste Admin"}
+              </Button>
+            </div>
           </div>
         </div>
       </div>

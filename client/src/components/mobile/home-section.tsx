@@ -14,7 +14,7 @@ interface HomeSectionProps {
 export default function HomeSection({ onSectionChange }: HomeSectionProps) {
   
   const { data: todayAppointments, isLoading } = useQuery({
-    queryKey: ["/api/appointments", { date: new Date().toISOString().split('T')[0] }],
+    queryKey: [`/api/appointments`],
   });
 
   const { data: galleryImages } = useQuery({
@@ -30,6 +30,8 @@ export default function HomeSection({ onSectionChange }: HomeSectionProps) {
     status: "confirmed",
     notes: "Cliente prefere tons rosados",
     price: "35.00",
+    paymentMethod: null,
+    paymentStatus: "pending",
     createdAt: new Date(),
     updatedAt: new Date(),
     client: {
@@ -38,6 +40,7 @@ export default function HomeSection({ onSectionChange }: HomeSectionProps) {
       cpf: "12345678901",
       email: "maria@email.com",
       phone: "(11) 99999-9999",
+      notes: null,
       points: 150,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -150,7 +153,7 @@ export default function HomeSection({ onSectionChange }: HomeSectionProps) {
             <div className="flex items-center justify-between">
               <div className="flex items-center text-amber-600 text-sm">
                 <Star className="w-4 h-4 mr-1 fill-current" />
-                <span>+{nextAppointment.service.loyaltyPoints || 15} pontos fidelidade</span>
+                <span>+{nextAppointment.service.points || 15} pontos fidelidade</span>
               </div>
               <Button 
                 className="bg-primary text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-primary/90 transform transition-all duration-200 hover:scale-105"
