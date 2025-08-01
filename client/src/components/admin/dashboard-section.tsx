@@ -203,12 +203,16 @@ export default function DashboardSection() {
         throw new Error("Serviço não encontrado");
       }
       
-      // Considerar o fuso horário configurado no sistema
+      // Converter horário local para UTC considerando o fuso horário configurado
       const timezone = systemSettings?.timezone || 'America/Sao_Paulo';
-      const localDateTime = new Date(`${data.date}T${data.time}:00`);
+      const localDateTimeStr = `${data.date}T${data.time}:00`;
       
-      // Converter o horário local para UTC usando o fuso horário configurado
-      const utcDate = new Date(localDateTime.toLocaleString("en-US", { timeZone: "UTC" }));
+      // Criar data assumindo que está no fuso horário local configurado
+      const localDateTime = new Date(localDateTimeStr);
+      
+      // Ajustar para UTC considerando offset do fuso horário de São Paulo (UTC-3)
+      // Se estamos em São Paulo (UTC-3), precisamos ADICIONAR 3 horas para obter UTC
+      const utcDate = new Date(localDateTime.getTime() + (3 * 60 * 60 * 1000));
       
       const appointmentData = {
         clientId: data.clientId,
