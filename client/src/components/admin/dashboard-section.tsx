@@ -589,7 +589,7 @@ export default function DashboardSection() {
                   {(todayAppointments as any[]).map((appointment: any) => (
                     <div key={appointment.id} className="flex items-center space-x-4 p-4 rounded-lg bg-[#ffe3ee]">
                       <div className="text-center">
-                        <p className="font-medium text-gray-600 text-[16px]">
+                        <p className="font-medium text-gray-600 text-[18px]">
                           {format(new Date(appointment.date), "HH:mm")}
                         </p>
                         <p className="text-gray-500 text-[14px]">{appointment.service.duration}min</p>
