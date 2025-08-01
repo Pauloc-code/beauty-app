@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,8 @@ export default function DashboardSection() {
   const [newClientOpen, setNewClientOpen] = useState(false);
   const [promotionOpen, setPromotionOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -43,7 +45,10 @@ export default function DashboardSection() {
 
   const { data: todayAppointments, isLoading: appointmentsLoading } = useQuery({
     queryKey: ["/api/appointments", new Date().toISOString().split('T')[0]],
-    queryFn: () => apiRequest(`/api/appointments?date=${new Date().toISOString().split('T')[0]}`),
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/appointments?date=${new Date().toISOString().split('T')[0]}`);
+      return response;
+    },
   });
 
   const { data: clients = [] } = useQuery({
@@ -173,7 +178,7 @@ export default function DashboardSection() {
       console.log("Dados do formulário:", data);
       
       // Buscar o serviço para obter o preço
-      const selectedService = services.find((s: any) => s.id === data.serviceId);
+      const selectedService = (services as any[]).find((s: any) => s.id === data.serviceId);
       if (!selectedService) {
         throw new Error("Serviço não encontrado");
       }
@@ -210,13 +215,63 @@ export default function DashboardSection() {
     }
   });
 
+  const updateAppointmentMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      console.log("Updating appointment:", id, data);
+      return await apiRequest("PUT", `/api/appointments/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/today"] });
+      toast({
+        title: "Sucesso",
+        description: "Status do agendamento atualizado!",
+      });
+    },
+    onError: (error) => {
+      console.error("Update appointment error:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar agendamento",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleCompleteAppointment = (appointment: any) => {
+    setSelectedAppointment(appointment);
+    setPaymentModalOpen(true);
+  };
+
+  const handleNoShowAppointment = (appointment: any) => {
+    updateAppointmentMutation.mutate({
+      id: appointment.id,
+      data: { status: 'no_show' }
+    });
+  };
+
+  const handlePaymentSubmit = (paymentMethod: string) => {
+    if (selectedAppointment) {
+      updateAppointmentMutation.mutate({
+        id: selectedAppointment.id,
+        data: { 
+          status: 'completed',
+          paymentMethod: paymentMethod,
+          paymentStatus: 'paid'
+        }
+      });
+      setPaymentModalOpen(false);
+      setSelectedAppointment(null);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatsCard
           title="Agendamentos Hoje"
-          value={stats?.todayAppointments?.toString() || "0"}
+          value={(stats as any)?.todayAppointments?.toString() || "0"}
           change="+12%"
           changeLabel="vs. ontem"
           icon={Calendar}
@@ -225,7 +280,7 @@ export default function DashboardSection() {
         
         <StatsCard
           title="Faturamento Hoje"
-          value={`R$ ${stats?.todayRevenue?.toFixed(2).replace('.', ',') || "0,00"}`}
+          value={`R$ ${(stats as any)?.todayRevenue?.toFixed(2).replace('.', ',') || "0,00"}`}
           change="+8%"
           changeLabel="vs. ontem"
           icon={DollarSign}
@@ -235,7 +290,7 @@ export default function DashboardSection() {
         
         <StatsCard
           title="Novos Clientes"
-          value={stats?.newClients?.toString() || "0"}
+          value={(stats as any)?.newClients?.toString() || "0"}
           change="+25%"
           changeLabel="vs. semana passada"
           icon={UserPlus}
@@ -245,7 +300,7 @@ export default function DashboardSection() {
         
         <StatsCard
           title="Taxa de Ocupação"
-          value={`${stats?.occupancyRate || 0}%`}
+          value={`${(stats as any)?.occupancyRate || 0}%`}
           change="+5%"
           changeLabel="vs. média mensal"
           icon={TrendingUp}
@@ -304,7 +359,7 @@ export default function DashboardSection() {
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  {clients.map((client: any) => (
+                                  {(clients as any[]).map((client: any) => (
                                     <SelectItem key={client.id} value={client.id}>
                                       {client.name}
                                     </SelectItem>
@@ -329,7 +384,7 @@ export default function DashboardSection() {
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  {services.map((service: any) => (
+                                  {(services as any[]).map((service: any) => (
                                     <SelectItem key={service.id} value={service.id}>
                                       {service.name} - R$ {parseFloat(service.price).toFixed(2).replace('.', ',')}
                                     </SelectItem>
@@ -430,9 +485,9 @@ export default function DashboardSection() {
                     </div>
                   ))}
                 </div>
-              ) : todayAppointments?.length ? (
+              ) : (todayAppointments as any[])?.length ? (
                 <div className="space-y-4">
-                  {todayAppointments.map((appointment) => (
+                  {(todayAppointments as any[]).map((appointment: any) => (
                     <div key={appointment.id} className="flex items-center space-x-4 p-4 bg-secondary rounded-lg">
                       <div className="text-center">
                         <p className="text-sm font-medium text-gray-600">
@@ -449,13 +504,32 @@ export default function DashboardSection() {
                         <p className="font-semibold text-primary">
                           R$ {parseFloat(appointment.price).toFixed(2).replace('.', ',')}
                         </p>
-                        <div className="flex space-x-1 mt-2">
-                          <button className="p-1 text-gray-400 hover:text-primary transition-colors">
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button className="p-1 text-gray-400 hover:text-red-600 transition-colors">
-                            <X className="w-4 h-4" />
-                          </button>
+                        <div className="flex flex-col space-y-1 mt-2">
+                          <div className="flex space-x-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="p-1 text-gray-400 hover:text-green-600"
+                              onClick={() => handleCompleteAppointment(appointment)}
+                              disabled={appointment.status === 'completed'}
+                            >
+                              <Check className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="p-1 text-gray-400 hover:text-yellow-600"
+                              onClick={() => handleNoShowAppointment(appointment)}
+                              disabled={appointment.status === 'no_show'}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          <div className="text-xs">
+                            {appointment.status === 'completed' && <span className="text-green-600">✓ Concluído</span>}
+                            {appointment.status === 'no_show' && <span className="text-yellow-600">! Faltou</span>}
+                            {appointment.status === 'scheduled' && <span className="text-blue-600">Agendado</span>}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -892,6 +966,69 @@ export default function DashboardSection() {
               </div>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Forma de Pagamento */}
+      <Dialog open={paymentModalOpen} onOpenChange={setPaymentModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Finalizar Atendimento</DialogTitle>
+            <p className="text-sm text-gray-600">
+              Selecione a forma de pagamento recebida para {selectedAppointment?.client?.name}
+            </p>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="font-medium">{selectedAppointment?.service?.name}</p>
+              <p className="text-primary font-semibold">
+                R$ {selectedAppointment?.price ? parseFloat(selectedAppointment.price).toFixed(2).replace('.', ',') : '0,00'}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Button 
+                onClick={() => handlePaymentSubmit('cash')}
+                className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg"
+                disabled={updateAppointmentMutation.isPending}
+              >
+                💰 Dinheiro
+              </Button>
+              <Button 
+                onClick={() => handlePaymentSubmit('pix')}
+                className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg"
+                disabled={updateAppointmentMutation.isPending}
+              >
+                📱 PIX
+              </Button>
+              <Button 
+                onClick={() => handlePaymentSubmit('card')}
+                className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-lg"
+                disabled={updateAppointmentMutation.isPending}
+              >
+                💳 Cartão
+              </Button>
+              <Button 
+                onClick={() => handlePaymentSubmit('credit')}
+                className="bg-orange-600 hover:bg-orange-700 text-white p-3 rounded-lg"
+                disabled={updateAppointmentMutation.isPending}
+              >
+                📝 Fiado
+              </Button>
+            </div>
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setPaymentModalOpen(false);
+                  setSelectedAppointment(null);
+                }}
+                className="flex-1"
+                disabled={updateAppointmentMutation.isPending}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

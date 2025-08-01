@@ -40,7 +40,9 @@ export const appointments = pgTable("appointments", {
   clientId: varchar("client_id").notNull().references(() => clients.id),
   serviceId: varchar("service_id").notNull().references(() => services.id),
   date: timestamp("date").notNull(),
-  status: text("status").notNull().default("scheduled"), // scheduled, confirmed, completed, cancelled
+  status: text("status").notNull().default("scheduled"), // scheduled, confirmed, completed, cancelled, no_show
+  paymentMethod: text("payment_method"), // cash, pix, card, credit
+  paymentStatus: text("payment_status").default("pending"), // pending, paid
   notes: text("notes"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

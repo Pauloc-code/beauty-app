@@ -215,14 +215,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/appointments/:id", async (req, res) => {
     try {
-      const appointmentData = insertAppointmentSchema.partial().parse(req.body);
-      const appointment = await storage.updateAppointment(req.params.id, appointmentData);
-      res.json(appointment);
+      const { id } = req.params;
+      const updateData = req.body;
+      
+      console.log("Updating appointment:", id, updateData);
+      const updatedAppointment = await storage.updateAppointment(id, updateData);
+      console.log("Updated appointment result:", updatedAppointment);
+      res.json(updatedAppointment);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid appointment data", errors: error.errors });
-      }
-      res.status(500).json({ message: "Failed to update appointment" });
+      console.error("Error updating appointment:", error);
+      res.status(500).json({ error: "Failed to update appointment" });
     }
   });
 
