@@ -42,7 +42,8 @@ export default function DashboardSection() {
   });
 
   const { data: todayAppointments, isLoading: appointmentsLoading } = useQuery({
-    queryKey: ["/api/appointments", { date: new Date().toISOString().split('T')[0] }],
+    queryKey: ["/api/appointments", new Date().toISOString().split('T')[0]],
+    queryFn: () => apiRequest(`/api/appointments?date=${new Date().toISOString().split('T')[0]}`),
   });
 
   const { data: clients = [] } = useQuery({
