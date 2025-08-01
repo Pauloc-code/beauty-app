@@ -12,6 +12,7 @@ import ClientsSection from "@/components/admin/clients-section";
 import ServicesSection from "@/components/admin/services-section";
 import GallerySection from "@/components/admin/gallery-section";
 import FinancialSection from "@/components/admin/financial-section";
+import CustomizationSection from "@/components/admin/customization-section";
 import SettingsSection from "@/components/admin/settings-section";
 
 export default function AdminPanel() {
@@ -60,6 +61,8 @@ export default function AdminPanel() {
         return <GallerySection />;
       case "financial":
         return <FinancialSection />;
+      case "customization":
+        return <CustomizationSection />;
       case "settings":
         return <SettingsSection />;
       default:

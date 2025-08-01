@@ -356,56 +356,67 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getSystemSettings(): Promise<SystemSettings[]> {
-    return await db.select().from(systemSettings);
-  }
-
-  async getSystemSetting(key: string): Promise<SystemSettings | undefined> {
-    const [setting] = await db
-      .select()
-      .from(systemSettings)
-      .where(eq(systemSettings.key, key));
-    return setting;
-  }
-
-  async upsertSystemSetting(key: string, value: string): Promise<SystemSettings> {
-    const existing = await this.getSystemSetting(key);
-    
-    if (existing) {
-      const [updated] = await db
-        .update(systemSettings)
-        .set({ value, updatedAt: new Date() })
-        .where(eq(systemSettings.key, key))
-        .returning();
-      return updated;
-    } else {
-      const [created] = await db
-        .insert(systemSettings)
-        .values({ key, value })
-        .returning();
-      return created;
-    }
-  }
-
-  async initializeSystemSettings(): Promise<SystemSettings> {
-    // Check if settings already exist
+  // System Settings
+  async getSystemSettings(): Promise<SystemSettings> {
     const [existing] = await db.select().from(systemSettings).limit(1);
+    
     if (existing) {
       return existing;
     }
 
     // Create default settings
-    const [settings] = await db
+    const [newSettings] = await db
       .insert(systemSettings)
       .values({
         timezone: "America/Sao_Paulo",
         showHolidays: true,
         holidayRegion: "sao_paulo",
-        workingDays: [1, 2, 3, 4, 5, 6], // Monday to Saturday
+        workingDays: [1, 2, 3, 4, 5, 6],
         workingHours: { start: "08:00", end: "18:00" }
       })
       .returning();
-    return settings;
+
+    return newSettings;
+  }
+
+  async updateSystemSettings(updates: Partial<SystemSettings>): Promise<SystemSettings> {
+    const current = await this.getSystemSettings();
+    
+    const [updated] = await db
+      .update(systemSettings)
+      .set({
+        ...updates,
+        updatedAt: new Date()
+      })
+      .where(eq(systemSettings.id, current.id))
+      .returning();
+
+    return updated;
+  }
+
+  // Theme Settings
+  async getTheme(): Promise<any> {
+    // For now, return default theme - you can implement theme table later
+    return {
+      id: "1",
+      name: "Rosa Clássico",
+      primaryColor: "#ec4899",
+      secondaryColor: "#f9a8d4",
+      accentColor: "#fce7f3",
+      backgroundColor: "#ffffff",
+      textColor: "#1f2937",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  async updateTheme(themeData: any): Promise<any> {
+    // For now, just return the updated theme - you can implement theme table later
+    return {
+      id: "1",
+      ...themeData,
+      updatedAt: new Date().toISOString()
+    };
   }
 }
 

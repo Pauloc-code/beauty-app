@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertClientSchema, insertServiceSchema, insertAppointmentSchema, insertGalleryImageSchema, insertTransactionSchema, systemSettings } from "@shared/schema";
+import { insertClientSchema, insertServiceSchema, insertAppointmentSchema, insertGalleryImageSchema, insertTransactionSchema, systemSettings, appointments } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -412,7 +412,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // System Settings routes
   app.get("/api/system-settings", async (req, res) => {
     try {
-      const settings = await storage.initializeSystemSettings();
+      const settings = await storage.getSystemSettings();
       res.json(settings);
     } catch (error) {
       console.error("Error fetching system settings:", error);
@@ -422,29 +422,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/system-settings", async (req, res) => {
     try {
-      const { timezone, showHolidays, holidayRegion, workingDays, workingHours } = req.body;
-      
-      // Get current settings
-      const current = await storage.initializeSystemSettings();
-      
-      // Update with new values
-      const [updated] = await db
-        .update(systemSettings)
-        .set({
-          timezone: timezone || current.timezone,
-          showHolidays: showHolidays !== undefined ? showHolidays : current.showHolidays,
-          holidayRegion: holidayRegion || current.holidayRegion,
-          workingDays: workingDays || current.workingDays,
-          workingHours: workingHours || current.workingHours,
-          updatedAt: new Date()
-        })
-        .where(eq(systemSettings.id, current.id))
-        .returning();
-      
-      res.json(updated);
+      const updatedSettings = await storage.updateSystemSettings(req.body);
+      res.json(updatedSettings);
     } catch (error) {
       console.error("Error updating system settings:", error);
       res.status(500).json({ error: "Failed to update system settings" });
+    }
+  });
+
+  // Theme routes
+  app.get("/api/theme", async (req, res) => {
+    try {
+      const theme = await storage.getTheme();
+      res.json(theme);
+    } catch (error) {
+      console.error("Error fetching theme:", error);
+      res.status(500).json({ error: "Failed to fetch theme" });
+    }
+  });
+
+  app.put("/api/theme", async (req, res) => {
+    try {
+      const updatedTheme = await storage.updateTheme(req.body);
+      res.json(updatedTheme);
+    } catch (error) {
+      console.error("Error updating theme:", error);
+      res.status(500).json({ error: "Failed to update theme" });
     }
   });
 
