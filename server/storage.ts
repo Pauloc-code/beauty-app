@@ -382,10 +382,13 @@ export class DatabaseStorage implements IStorage {
   async updateSystemSettings(updates: Partial<SystemSettings>): Promise<SystemSettings> {
     const current = await this.getSystemSettings();
     
+    // Remove campos que não devem ser atualizados pelo usuário
+    const { id, createdAt, updatedAt, ...userUpdates } = updates as any;
+    
     const [updated] = await db
       .update(systemSettings)
       .set({
-        ...updates,
+        ...userUpdates,
         updatedAt: new Date()
       })
       .where(eq(systemSettings.id, current.id))
