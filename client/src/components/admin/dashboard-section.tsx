@@ -26,6 +26,7 @@ import {
   Check
 } from "lucide-react";
 import { format } from "date-fns";
+import { fromZonedTime } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 import { useState } from "react";
 
@@ -203,16 +204,12 @@ export default function DashboardSection() {
         throw new Error("Serviço não encontrado");
       }
       
-      // Converter horário local para UTC considerando o fuso horário configurado
+      // Converter horário local para UTC usando date-fns-tz
       const timezone = systemSettings?.timezone || 'America/Sao_Paulo';
       const localDateTimeStr = `${data.date}T${data.time}:00`;
       
-      // Criar data assumindo que está no fuso horário local configurado
-      const localDateTime = new Date(localDateTimeStr);
-      
-      // Ajustar para UTC considerando offset do fuso horário de São Paulo (UTC-3)
-      // Se estamos em São Paulo (UTC-3), precisamos ADICIONAR 3 horas para obter UTC
-      const utcDate = new Date(localDateTime.getTime() + (3 * 60 * 60 * 1000));
+      // Converter usando fromZonedTime para garantir conversão correta
+      const utcDate = fromZonedTime(localDateTimeStr, timezone);
       
       const appointmentData = {
         clientId: data.clientId,
