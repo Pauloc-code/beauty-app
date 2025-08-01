@@ -323,16 +323,16 @@ export class DatabaseStorage implements IStorage {
     newClients: number;
     occupancyRate: number;
   }> {
-    // Get all appointments and filter by today's date using same logic as frontend
+    // Get system settings for timezone
+    const settings = await this.getSystemSettings();
+    const { createTimezoneService } = await import('./timezone-utils');
+    const timezoneService = new (await import('./timezone-utils')).TimezoneService(settings);
+    
     const allAppointments = await this.getAppointments();
     const today = new Date();
     
     const todayAppointmentsResult = allAppointments.filter(appointment => {
-      const appointmentDate = new Date(appointment.date);
-      const appointmentUTC = new Date(appointmentDate.getUTCFullYear(), appointmentDate.getUTCMonth(), appointmentDate.getUTCDate());
-      const todayUTC = new Date(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-      
-      return appointmentUTC.getTime() === todayUTC.getTime();
+      return timezoneService.isSameLocalDay(appointment.date, today);
     });
     const todayAppointments = todayAppointmentsResult.length;
 

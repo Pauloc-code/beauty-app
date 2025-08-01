@@ -200,6 +200,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       console.log("Processed appointment data:", processedData);
+      
+      // Add default price if not provided
+      if (!processedData.price) {
+        processedData.price = "0.00";
+      }
+
+      // Validate appointment time with timezone service
+      const settings = await storage.getSystemSettings();
+      const { TimezoneService } = await import('./timezone-utils');
+      const timezoneService = new TimezoneService(settings);
+      
+      const timeValidation = timezoneService.validateAppointmentTime(processedData.date);
+      
+      if (!timeValidation.valid) {
+        return res.status(400).json({ 
+          message: "Horário inválido", 
+          error: timeValidation.message 
+        });
+      }
+      
       const appointmentData = insertAppointmentSchema.parse(processedData);
       console.log("Parsed appointment data:", appointmentData);
       const appointment = await storage.createAppointment(appointmentData);

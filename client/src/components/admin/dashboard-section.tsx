@@ -47,16 +47,28 @@ export default function DashboardSection() {
     queryKey: ["/api/appointments"],
   });
 
-  // Filtrar agendamentos do dia atual no cliente usando UTC para evitar problemas de fuso horário
+  // Buscar configurações do sistema para usar o fuso horário correto
+  const { data: systemSettings } = useQuery({
+    queryKey: ["/api/system-settings"],
+  });
+
+  // Filtrar agendamentos do dia atual considerando o fuso horário configurado
   const todayAppointments = allAppointments?.filter((appointment: any) => {
+    if (!systemSettings) return false;
+    
     const appointmentDate = new Date(appointment.date);
     const today = new Date();
+    const timezone = systemSettings.timezone || 'America/Sao_Paulo';
     
-    // Comparar apenas as datas em UTC, ignorando horários
-    const appointmentUTC = new Date(appointmentDate.getUTCFullYear(), appointmentDate.getUTCMonth(), appointmentDate.getUTCDate());
-    const todayUTC = new Date(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+    // Converter ambas as datas para o fuso horário local
+    const appointmentLocal = new Date(appointmentDate.toLocaleString("en-US", { timeZone: timezone }));
+    const todayLocal = new Date(today.toLocaleString("en-US", { timeZone: timezone }));
     
-    return appointmentUTC.getTime() === todayUTC.getTime();
+    return (
+      appointmentLocal.getDate() === todayLocal.getDate() &&
+      appointmentLocal.getMonth() === todayLocal.getMonth() &&
+      appointmentLocal.getFullYear() === todayLocal.getFullYear()
+    );
   }) || [];
 
   const { data: clients = [] } = useQuery({
@@ -191,10 +203,17 @@ export default function DashboardSection() {
         throw new Error("Serviço não encontrado");
       }
       
+      // Considerar o fuso horário configurado no sistema
+      const timezone = systemSettings?.timezone || 'America/Sao_Paulo';
+      const localDateTime = new Date(`${data.date}T${data.time}:00`);
+      
+      // Converter o horário local para UTC usando o fuso horário configurado
+      const utcDate = new Date(localDateTime.toLocaleString("en-US", { timeZone: "UTC" }));
+      
       const appointmentData = {
         clientId: data.clientId,
         serviceId: data.serviceId,
-        date: new Date(`${data.date}T${data.time}:00.000Z`),
+        date: utcDate,
         status: data.status || "scheduled",
         price: selectedService.price,
         notes: data.notes || ""
