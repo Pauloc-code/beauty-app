@@ -315,7 +315,6 @@ export default function DashboardSection() {
           loading={statsLoading}
         />
       </div>
-
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Today's Schedule */}
@@ -495,7 +494,7 @@ export default function DashboardSection() {
               ) : (todayAppointments as any[])?.length ? (
                 <div className="space-y-4">
                   {(todayAppointments as any[]).map((appointment: any) => (
-                    <div key={appointment.id} className="flex items-center space-x-4 p-4 bg-secondary rounded-lg">
+                    <div key={appointment.id} className="flex items-center space-x-4 p-4 rounded-lg bg-[#ffccd9]">
                       <div className="text-center">
                         <p className="text-sm font-medium text-gray-600">
                           {format(new Date(appointment.date), "HH:mm")}
@@ -642,7 +641,6 @@ export default function DashboardSection() {
           </Card>
         </div>
       </div>
-
       {/* Modal Cadastrar Cliente */}
       <Dialog open={newClientOpen} onOpenChange={setNewClientOpen}>
         <DialogContent className="sm:max-w-md">
@@ -752,7 +750,6 @@ export default function DashboardSection() {
           </Form>
         </DialogContent>
       </Dialog>
-
       {/* Modal Enviar Promoção */}
       <Dialog open={promotionOpen} onOpenChange={setPromotionOpen}>
         <DialogContent className="sm:max-w-md">
@@ -815,7 +812,6 @@ export default function DashboardSection() {
           </div>
         </DialogContent>
       </Dialog>
-
       {/* Modal Upload Galeria */}
       <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
         <DialogContent className="sm:max-w-md">
@@ -975,7 +971,6 @@ export default function DashboardSection() {
           </Form>
         </DialogContent>
       </Dialog>
-
       {/* Modal Forma de Pagamento */}
       <Dialog open={paymentModalOpen} onOpenChange={setPaymentModalOpen}>
         <DialogContent className="sm:max-w-md">
