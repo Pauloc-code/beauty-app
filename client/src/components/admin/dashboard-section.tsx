@@ -31,7 +31,7 @@ import {
 import { format } from "date-fns";
 import { fromZonedTime } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 export default function DashboardSection() {
   const [newAppointmentOpen, setNewAppointmentOpen] = useState(false);
@@ -63,12 +63,12 @@ export default function DashboardSection() {
   });
 
   // Filtrar agendamentos do dia atual considerando o fuso horário configurado
-  const todayAppointments = allAppointments?.filter((appointment: any) => {
+  const todayAppointments = (allAppointments as any[])?.filter((appointment: any) => {
     if (!systemSettings) return false;
     
     const appointmentDate = new Date(appointment.date);
     const today = new Date();
-    const timezone = systemSettings.timezone || 'America/Sao_Paulo';
+    const timezone = (systemSettings as any).timezone || 'America/Sao_Paulo';
     
     // Converter ambas as datas para o fuso horário local
     const appointmentLocal = new Date(appointmentDate.toLocaleString("en-US", { timeZone: timezone }));
@@ -283,7 +283,7 @@ export default function DashboardSection() {
       
       // Se data e time foram fornecidos, converter para UTC
       if (data.date && data.time) {
-        const timezone = systemSettings?.timezone || 'America/Sao_Paulo';
+        const timezone = (systemSettings as any)?.timezone || 'America/Sao_Paulo';
         const localDateTimeStr = `${data.date}T${data.time}:00`;
         const utcDate = fromZonedTime(localDateTimeStr, timezone);
         data.date = utcDate;
@@ -1339,9 +1339,10 @@ export default function DashboardSection() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Editar Serviços do Agendamento</DialogTitle>
-            <p className="text-sm text-gray-600">
-              {editingServiceAppointment && `Cliente: ${editingServiceAppointment.client?.name}`}
-            </p>
+            <DialogDescription>
+              Altere o serviço principal ou adicione serviços extras ao agendamento. 
+              {editingServiceAppointment && ` Cliente: ${editingServiceAppointment.client?.name}`}
+            </DialogDescription>
           </DialogHeader>
           <AppointmentServicesEditor
             appointmentId={editingServiceAppointment?.id}
@@ -1367,11 +1368,20 @@ function AppointmentServicesEditor({
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Buscar serviços atuais do agendamento
+  // Buscar dados do agendamento principal
+  const { data: appointmentData } = useQuery({
+    queryKey: [`/api/appointments`],
+    enabled: !!appointmentId,
+  });
+
+  // Buscar serviços adicionais do agendamento
   const { data: appointmentServices, isLoading } = useQuery({
     queryKey: [`/api/appointments/${appointmentId}/services`],
     enabled: !!appointmentId,
   });
+
+  // Encontrar o agendamento atual
+  const currentAppointment = (appointmentData as any[])?.find((apt: any) => apt.id === appointmentId);
 
   // Mutation para adicionar serviço
   const addServiceMutation = useMutation({
@@ -1419,6 +1429,34 @@ function AppointmentServicesEditor({
     }
   });
 
+  // Mutation para alterar serviço principal
+  const updateMainServiceMutation = useMutation({
+    mutationFn: async (data: { serviceId: string; price: string }) => {
+      return await apiRequest("PUT", `/api/appointments/${appointmentId}`, {
+        serviceId: data.serviceId,
+        price: data.price
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/today"] });
+      toast({
+        title: "Sucesso",
+        description: "Serviço principal alterado com sucesso!",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro",
+        description: "Erro ao alterar serviço principal",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Estados para controlar edição do serviço principal
+  const [editingMainService, setEditingMainService] = useState(false);
+
   // Form para adicionar novo serviço
   const addServiceForm = useForm({
     resolver: zodResolver(z.object({
@@ -1431,48 +1469,209 @@ function AppointmentServicesEditor({
     }
   });
 
+  // Form para alterar serviço principal
+  const mainServiceForm = useForm({
+    resolver: zodResolver(z.object({
+      serviceId: z.string().min(1, "Selecione um serviço"),
+      price: z.string().min(1, "Preço é obrigatório")
+    })),
+    defaultValues: {
+      serviceId: currentAppointment?.serviceId || "",
+      price: currentAppointment?.price || ""
+    }
+  });
+
   const handleAddService = (data: any) => {
     addServiceMutation.mutate(data);
     addServiceForm.reset();
+  };
+
+  const handleUpdateMainService = (data: any) => {
+    updateMainServiceMutation.mutate(data);
+    setEditingMainService(false);
   };
 
   if (isLoading) {
     return <div className="p-4 text-center">Carregando serviços...</div>;
   }
 
+  // Calcular valor total de todos os serviços
+  const totalValue = useMemo(() => {
+    let total = 0;
+    
+    // Adicionar valor do serviço principal
+    if (currentAppointment?.price) {
+      total += parseFloat(currentAppointment.price);
+    }
+    
+    // Adicionar valores dos serviços adicionais
+    (appointmentServices as any[])?.forEach((item: any) => {
+      total += parseFloat(item.price || 0);
+    });
+    
+    return total;
+  }, [currentAppointment, appointmentServices]);
+
   return (
     <div className="space-y-4">
+      {/* Resumo do Valor Total */}
+      <div className="bg-primary/10 p-4 rounded-lg border">
+        <div className="flex justify-between items-center">
+          <span className="font-medium text-gray-900">Valor Total:</span>
+          <span className="text-lg font-bold text-primary">
+            R$ {totalValue.toFixed(2).replace('.', ',')}
+          </span>
+        </div>
+      </div>
+
       {/* Lista de serviços atuais */}
       <div>
-        <h4 className="font-medium text-gray-900 mb-3">Serviços Atuais</h4>
-        {appointmentServices?.length > 0 ? (
-          <div className="space-y-2">
-            {appointmentServices.map((item: any) => (
-              <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900">{item.service?.name}</p>
-                  <p className="text-sm text-gray-600">R$ {parseFloat(item.price).toFixed(2).replace('.', ',')}</p>
-                </div>
+        <h4 className="font-medium text-gray-900 mb-3">Serviços Incluídos</h4>
+        <div className="space-y-2">
+          {/* Serviço Principal */}
+          {currentAppointment && (
+            <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div>
+                <p className="font-medium text-gray-900">
+                  {currentAppointment.service?.name}
+                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                    Principal
+                  </span>
+                </p>
+                <p className="text-sm text-gray-600">
+                  R$ {parseFloat(currentAppointment.price || 0).toFixed(2).replace('.', ',')}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setEditingMainService(true);
+                  mainServiceForm.setValue("serviceId", currentAppointment.serviceId);
+                  mainServiceForm.setValue("price", currentAppointment.price);
+                }}
+                className="text-blue-600 hover:text-blue-700"
+              >
+                <Edit className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+
+          {/* Serviços Adicionais */}
+          {(appointmentServices as any[])?.map((item: any) => (
+            <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div>
+                <p className="font-medium text-gray-900">
+                  {item.service?.name}
+                  <span className="ml-2 px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs font-medium">
+                    Adicional
+                  </span>
+                </p>
+                <p className="text-sm text-gray-600">R$ {parseFloat(item.price).toFixed(2).replace('.', ',')}</p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => removeServiceMutation.mutate(item.id)}
+                disabled={removeServiceMutation.isPending}
+                className="text-red-600 hover:text-red-700"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          ))}
+
+          {/* Mensagem quando não há serviços adicionais */}
+          {(!(appointmentServices as any[]) || (appointmentServices as any[]).length === 0) && (
+            <p className="text-sm text-gray-500 text-center py-4 italic">
+              Apenas o serviço principal está incluído
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Formulário para editar serviço principal */}
+      {editingMainService && (
+        <div className="border-t pt-4">
+          <h4 className="font-medium text-gray-900 mb-3">Alterar Serviço Principal</h4>
+          <Form {...mainServiceForm}>
+            <form onSubmit={mainServiceForm.handleSubmit(handleUpdateMainService)} className="space-y-3">
+              <FormField
+                control={mainServiceForm.control}
+                name="serviceId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Novo Serviço Principal</FormLabel>
+                    <Select onValueChange={(value) => {
+                      field.onChange(value);
+                      const selectedService = services.find((s: any) => s.id === value);
+                      if (selectedService) {
+                        mainServiceForm.setValue("price", selectedService.price);
+                      }
+                    }} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um serviço" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {services.map((service: any) => (
+                          <SelectItem key={service.id} value={service.id}>
+                            {service.name} - R$ {parseFloat(service.price).toFixed(2).replace('.', ',')}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={mainServiceForm.control}
+                name="price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Preço</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex gap-3 pt-2">
                 <Button
-                  size="sm"
+                  type="button"
                   variant="outline"
-                  onClick={() => removeServiceMutation.mutate(item.id)}
-                  disabled={removeServiceMutation.isPending}
-                  className="text-red-600 hover:text-red-700"
+                  onClick={() => setEditingMainService(false)}
+                  className="flex-1"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1"
+                  disabled={updateMainServiceMutation.isPending}
+                >
+                  <Edit className="w-4 h-4 mr-1" />
+                  {updateMainServiceMutation.isPending ? "Alterando..." : "Alterar Serviço"}
                 </Button>
               </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-gray-500 text-center py-4">Nenhum serviço adicional</p>
-        )}
-      </div>
+            </form>
+          </Form>
+        </div>
+      )}
 
       {/* Formulário para adicionar novo serviço */}
       <div className="border-t pt-4">
-        <h4 className="font-medium text-gray-900 mb-3">Adicionar Serviço</h4>
+        <h4 className="font-medium text-gray-900 mb-3">Adicionar Serviço Extra</h4>
         <Form {...addServiceForm}>
           <form onSubmit={addServiceForm.handleSubmit(handleAddService)} className="space-y-3">
             <FormField
