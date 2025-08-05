@@ -23,3 +23,4 @@ const poolConfig = {
 const pool = new Pool(poolConfig);
 
 export const db = drizzle(pool, { schema });
+
