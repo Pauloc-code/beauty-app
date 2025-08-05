@@ -14,12 +14,12 @@ export default defineConfig({
   dbCredentials: {
     url: process.env.DATABASE_URL,
   },
-  // Esta secção "driverConfig" é a forma correta de passar a
-  // configuração SSL para a ferramenta Drizzle Kit.
+  // Esta secção "driverConfig" é a correção.
+  // Ela diz à ferramenta Drizzle Kit para usar uma ligação segura
+  // e aceitar o certificado da base de dados do Render.
   driverConfig: {
     ssl: {
       rejectUnauthorized: false,
     },
   },
 });
-

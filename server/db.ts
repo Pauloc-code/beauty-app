@@ -2,6 +2,7 @@
 // Apague todo o conteúdo dele e substitua por este código.
 
 import { drizzle } from 'drizzle-orm/node-postgres';
+// A linha abaixo importa a biblioteca 'pg' da forma correta para o seu projeto.
 import pg from 'pg';
 const { Pool } = pg;
 
@@ -23,4 +24,3 @@ const poolConfig = {
 const pool = new Pool(poolConfig);
 
 export const db = drizzle(pool, { schema });
-
