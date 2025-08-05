@@ -1,8 +1,6 @@
-// No seu projeto, encontre e abra o ficheiro localizado em: server/db.ts
-// Apague todo o conteúdo dele e substitua por este código.
+// Este é o código correto para o seu ficheiro server/db.ts
 
 import { drizzle } from 'drizzle-orm/node-postgres';
-// A linha abaixo importa a biblioteca 'pg' da forma correta para o seu projeto.
 import pg from 'pg';
 const { Pool } = pg;
 
