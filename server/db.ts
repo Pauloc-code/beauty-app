@@ -1,4 +1,8 @@
+// No seu projeto, encontre e abra o ficheiro localizado em: server/db.ts
+// Apague todo o conteúdo dele e substitua por este código.
+
 import { drizzle } from 'drizzle-orm/node-postgres';
+// A linha abaixo importa a biblioteca 'pg' da forma correta para o seu projeto.
 import pg from 'pg';
 const { Pool } = pg;
 
@@ -10,6 +14,8 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
+// Esta configuração garante que a ligação com a base de dados no Render
+// seja segura e aceite o certificado SSL necessário.
 const poolConfig = {
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
