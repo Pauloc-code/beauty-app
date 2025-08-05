@@ -1,9 +1,11 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
-import * as schema from "@shared/schema";
+// No seu projeto, encontre e abra o ficheiro localizado em: server/db.ts
+// Apague todo o conteúdo dele e substitua por este código.
 
-neonConfig.webSocketConstructor = ws;
+import { drizzle } from 'drizzle-orm/node-postgres';
+import pg from 'pg';
+const { Pool } = pg;
+
+import * as schema from "@shared/schema";
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -11,5 +13,13 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle({ client: pool, schema });
+// Esta configuração garante que a ligação com a base de dados no Render
+// seja segura e aceite o certificado SSL necessário.
+const poolConfig = {
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+};
+
+const pool = new Pool(poolConfig);
+
+export const db = drizzle(pool, { schema });
