@@ -1,15 +1,15 @@
-// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
-// TODO: Replace with your web app's Firebase configuration
+// Configuração do Firebase que lê as "Variáveis de Ambiente"
+// Estas variáveis serão configuradas no painel da Vercel
 const firebaseConfig = {
-  apiKey: "AIzaSyCPhw5KF1NbZqlfP73Tsk-61dN6ItliYaI",
-  authDomain: "beauty-app-43dc9.firebaseapp.com",
-  projectId: "beauty-app-43dc9",
-  storageBucket: "beauty-app-43dc9.appspot.com",
-  messagingSenderId: "494337317243",
-  appId: "1:494337317243:web:1edcb8208d40a40fd185de"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // Initialize Firebase

@@ -6,14 +6,66 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { Plus, Edit, Trash2, Clock, DollarSign, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { DebugLogger } from "@/lib/debug-logger";
-import type { InsertService, Service } from "@shared/schema";
+import { db } from "@/lib/firebase";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp } from "firebase/firestore";
+import type { Service } from "@shared/schema";
+
+type ServiceData = Omit<Service, 'id' | 'createdAt' | 'updatedAt'> & {
+  id?: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+};
+
+// Funções para interagir com o Firebase
+const fetchServices = async (): Promise<Service[]> => {
+  const servicesCollection = collection(db, "services");
+  const serviceSnapshot = await getDocs(servicesCollection);
+  const serviceList = serviceSnapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
+    } as Service;
+  });
+  return serviceList;
+};
+
+const addService = async (service: Omit<ServiceData, 'id'>) => {
+  const servicesCollection = collection(db, "services");
+  const docRef = await addDoc(servicesCollection, {
+    ...service,
+    price: parseFloat(service.price),
+    duration: parseInt(service.duration as any, 10),
+    points: parseInt(service.points as any, 10),
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now()
+  });
+  return { id: docRef.id, ...service };
+};
+
+const updateService = async (id: string, service: Partial<ServiceData>) => {
+  const serviceDoc = doc(db, "services", id);
+  const dataToUpdate = {
+    ...service,
+    price: service.price ? parseFloat(service.price) : undefined,
+    duration: service.duration ? parseInt(service.duration as any, 10) : undefined,
+    points: service.points ? parseInt(service.points as any, 10) : undefined,
+    updatedAt: Timestamp.now()
+  };
+  await updateDoc(serviceDoc, dataToUpdate);
+};
+
+const deleteService = async (id: string) => {
+  const serviceDoc = doc(db, "services", id);
+  await deleteDoc(serviceDoc);
+};
 
 export default function ServicesSection() {
-  const [isNewServiceOpen, setIsNewServiceOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [serviceForm, setServiceForm] = useState({
     name: "",
@@ -26,79 +78,64 @@ export default function ServicesSection() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: services, isLoading } = useQuery({
-    queryKey: ["/api/services"],
-    onSuccess: (data) => {
-      DebugLogger.success("Services", "Loaded services", { count: data?.length || 0 });
-    },
-    onError: (error) => {
-      DebugLogger.error("Services", "Failed to load services", error);
-    }
+  const { data: services = [], isLoading } = useQuery({
+    queryKey: ["services"],
+    queryFn: fetchServices,
   });
 
   const createServiceMutation = useMutation({
-    mutationFn: async (service: InsertService) => {
-      DebugLogger.log("Services", "Creating service", service);
-      return await apiRequest("POST", "/api/services", service);
-    },
-    onSuccess: (data) => {
-      DebugLogger.success("Services", "Service created successfully", data);
-      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
-      setIsNewServiceOpen(false);
+    mutationFn: addService,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["services"] });
+      setIsModalOpen(false);
       resetForm();
       toast({
         title: "Serviço criado",
-        description: "Serviço foi criado com sucesso.",
+        description: "O novo serviço foi adicionado com sucesso.",
       });
     },
-    onError: (error) => {
-      DebugLogger.error("Services", "Failed to create service", error);
+    onError: (error: Error) => {
       toast({
         title: "Erro",
-        description: "Não foi possível criar o serviço.",
+        description: `Não foi possível criar o serviço: ${error.message}`,
         variant: "destructive",
       });
     },
   });
 
   const updateServiceMutation = useMutation({
-    mutationFn: async ({ id, service }: { id: string, service: Partial<InsertService> }) => {
-      DebugLogger.log("Services", "Updating service", { id, service });
-      return await apiRequest("PATCH", `/api/services/${id}`, service);
-    },
-    onSuccess: (data) => {
-      DebugLogger.success("Services", "Service updated successfully", data);
-      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
-      setEditingService(null);
+    mutationFn: ({ id, service }: { id: string, service: Partial<ServiceData> }) => updateService(id, service),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["services"] });
+      setIsModalOpen(false);
       resetForm();
       toast({
         title: "Serviço atualizado",
-        description: "Serviço foi atualizado com sucesso.",
+        description: "O serviço foi atualizado com sucesso.",
       });
     },
-    onError: (error) => {
-      DebugLogger.error("Services", "Failed to update service", error);
+    onError: (error: Error) => {
       toast({
         title: "Erro",
-        description: "Não foi possível atualizar o serviço.",
+        description: `Não foi possível atualizar o serviço: ${error.message}`,
         variant: "destructive",
       });
     },
   });
 
   const deleteServiceMutation = useMutation({
-    mutationFn: async (serviceId: string) => await apiRequest("DELETE", `/api/services/${serviceId}`),
+    mutationFn: deleteService,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      queryClient.invalidateQueries({ queryKey: ["services"] });
       toast({
         title: "Serviço removido",
-        description: "Serviço foi removido com sucesso.",
+        description: "O serviço foi removido com sucesso.",
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Erro",
-        description: "Não foi possível remover o serviço.",
+        description: `Não foi possível remover o serviço: ${error.message}`,
         variant: "destructive",
       });
     },
@@ -113,43 +150,40 @@ export default function ServicesSection() {
       imageUrl: "",
       points: ""
     });
+    setEditingService(null);
   };
 
-  const handleOpenNewService = () => {
-    resetForm();
-    setIsNewServiceOpen(true);
-  };
-
-  const handleEditService = (service: Service) => {
-    setServiceForm({
-      name: service.name,
-      description: service.description || "",
-      duration: service.duration.toString(),
-      price: service.price.toString(),
-      imageUrl: service.imageUrl || "",
-      points: service.points.toString()
-    });
-    setEditingService(service);
+  const handleOpenModal = (service: Service | null = null) => {
+    if (service) {
+      setEditingService(service);
+      setServiceForm({
+        name: service.name,
+        description: service.description || "",
+        duration: service.duration.toString(),
+        price: service.price.toString(),
+        imageUrl: service.imageUrl || "",
+        points: service.points.toString()
+      });
+    } else {
+      resetForm();
+    }
+    setIsModalOpen(true);
   };
 
   const handleSaveService = () => {
-    if (!serviceForm.name || !serviceForm.duration || !serviceForm.price || !serviceForm.points) {
+    const { name, duration, price, points } = serviceForm;
+    if (!name || !duration || !price || !points) {
       toast({
         title: "Campos obrigatórios",
-        description: "Nome, duração, preço e pontos são obrigatórios.",
+        description: "Nome, Duração, Preço e Pontos são obrigatórios.",
         variant: "destructive",
       });
       return;
     }
 
-    const serviceData: InsertService = {
-      name: serviceForm.name.trim(),
-      description: serviceForm.description?.trim() || undefined,
-      duration: parseInt(serviceForm.duration),
-      price: serviceForm.price,
-      imageUrl: serviceForm.imageUrl?.trim() || undefined,
-      points: parseInt(serviceForm.points),
-      active: true
+    const serviceData = {
+        ...serviceForm,
+        active: true,
     };
 
     if (editingService) {
@@ -165,45 +199,13 @@ export default function ServicesSection() {
     }
   };
 
-  const defaultServices = [
-    {
-      id: "1",
-      name: "Esmaltação em Gel",
-      duration: 45,
-      price: "35.00",
-      points: 10,
-      active: true,
-      imageUrl: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
-    },
-    {
-      id: "2", 
-      name: "Spa dos Pés",
-      duration: 60,
-      price: "50.00",
-      points: 15,
-      active: true,
-      imageUrl: "https://images.unsplash.com/photo-1580618672591-eb180b1a973f?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
-    },
-    {
-      id: "3",
-      name: "Unhas de Fibra", 
-      duration: 90,
-      price: "80.00",
-      points: 25,
-      active: true,
-      imageUrl: "https://images.unsplash.com/photo-1607779097040-26e80aa78e66?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
-    }
-  ];
-
-  const servicesToShow = services?.length ? services : defaultServices;
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <Card>
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900">Gestão de Serviços</h2>
-            <Button onClick={handleOpenNewService} className="bg-primary text-white hover:bg-primary/90">
+            <Button onClick={() => handleOpenModal()} className="bg-primary text-white hover:bg-primary/90">
               <Plus className="w-4 h-4 mr-2" />
               Novo Serviço
             </Button>
@@ -212,209 +214,89 @@ export default function ServicesSection() {
         
         <CardContent className="p-6">
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="space-y-4">
               {[1, 2, 3].map((i) => (
-                <Card key={i} className="p-6 animate-pulse">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-gray-200 rounded-lg"></div>
-                      <div>
-                        <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
-                        <div className="h-3 bg-gray-200 rounded w-16"></div>
-                      </div>
-                    </div>
-                    <div className="flex space-x-2">
-                      <div className="w-6 h-6 bg-gray-200 rounded"></div>
-                      <div className="w-6 h-6 bg-gray-200 rounded"></div>
-                    </div>
+                <div key={i} className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg animate-pulse">
+                  <div className="w-20 h-20 bg-gray-200 rounded-lg"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/4"></div>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <div className="h-3 bg-gray-200 rounded w-12"></div>
-                      <div className="h-3 bg-gray-200 rounded w-16"></div>
-                    </div>
-                    <div className="flex justify-between">
-                      <div className="h-3 bg-gray-200 rounded w-12"></div>
-                      <div className="h-3 bg-gray-200 rounded w-10"></div>
-                    </div>
-                    <div className="flex justify-between">
-                      <div className="h-3 bg-gray-200 rounded w-12"></div>
-                      <div className="h-3 bg-gray-200 rounded w-12"></div>
-                    </div>
-                  </div>
-                </Card>
+                </div>
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {servicesToShow.map((service) => (
-                <Card key={service.id} className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        <img
-                          src={service.imageUrl || "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?ixlib=rb-4.0.3&auto=format&fit=crop&w=60&h=60"}
-                          alt={service.name}
-                          className="w-12 h-12 object-cover rounded-lg"
-                        />
-                        <div>
-                          <h3 className="font-semibold text-gray-900">{service.name}</h3>
-                          <p className="text-sm text-gray-600">{service.duration} minutos</p>
-                        </div>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-gray-400 hover:text-primary"
-                          onClick={() => handleEditService(service)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-gray-400 hover:text-red-600"
-                          onClick={() => handleDeleteService(service.id)}
-                          disabled={deleteServiceMutation.isPending}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+            <div className="space-y-4">
+              {services.map((service) => (
+                <div key={service.id} className="flex items-center space-x-4 p-4 border border-gray-100 rounded-lg hover:bg-gray-50">
+                  <img 
+                    src={service.imageUrl || `https://api.dicebear.com/8.x/icons/svg?seed=${service.name}`}
+                    alt={service.name}
+                    className="w-20 h-20 rounded-lg object-cover"
+                  />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900">{service.name}</h3>
+                    <p className="text-sm text-gray-600">{service.description}</p>
+                    <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                      <span className="flex items-center"><Clock className="w-4 h-4 mr-1" /> {service.duration} min</span>
+                      <span className="flex items-center"><DollarSign className="w-4 h-4 mr-1" /> R$ {Number(service.price).toFixed(2)}</span>
+                      <span className="flex items-center"><Star className="w-4 h-4 mr-1" /> {service.points} pts</span>
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Preço:</span>
-                        <span className="font-semibold text-primary">
-                          R$ {parseFloat(service.price).toFixed(2).replace('.', ',')}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Pontos:</span>
-                        <Badge variant="secondary" className="bg-accent text-white text-xs">
-                          +{service.points}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Status:</span>
-                        <Badge 
-                          className={service.active 
-                            ? "bg-green-100 text-green-800" 
-                            : "bg-red-100 text-red-800"
-                          }
-                        >
-                          {service.active ? "Ativo" : "Inativo"}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                  <div className="flex flex-col space-y-2">
+                    <Button variant="outline" size="sm" onClick={() => handleOpenModal(service)}>
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleDeleteService(service.id)} disabled={deleteServiceMutation.isPending}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
               ))}
-            </div>
-          )}
-
-          {(!services || services.length === 0) && !isLoading && (
-            <div className="text-center py-8">
-              <p className="text-gray-500 mb-4">Nenhum serviço cadastrado</p>
-              <Button className="bg-primary text-white">
-                <Plus className="w-4 h-4 mr-2" />
-                Adicionar primeiro serviço
-              </Button>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Service Modal */}
-      <Dialog open={isNewServiceOpen || !!editingService} onOpenChange={(open) => {
-        if (!open) {
-          setIsNewServiceOpen(false);
-          setEditingService(null);
-          resetForm();
-        }
-      }}>
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {editingService ? "Editar Serviço" : "Novo Serviço"}
-            </DialogTitle>
+            <DialogTitle>{editingService ? "Editar Serviço" : "Novo Serviço"}</DialogTitle>
             <DialogDescription>
-              {editingService ? "Modifique as informações do serviço abaixo." : "Preencha os dados para cadastrar um novo serviço."}
+              {editingService ? "Modifique as informações do serviço." : "Preencha os dados para criar um novo serviço."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label htmlFor="serviceName">Nome *</Label>
-              <Input
-                id="serviceName"
-                value={serviceForm.name}
-                onChange={(e) => setServiceForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Nome do serviço"
-              />
+              <Label htmlFor="name">Nome do Serviço *</Label>
+              <Input id="name" value={serviceForm.name} onChange={(e) => setServiceForm(prev => ({ ...prev, name: e.target.value }))} />
             </div>
             <div>
               <Label htmlFor="description">Descrição</Label>
-              <Input
-                id="description"
-                value={serviceForm.description}
-                onChange={(e) => setServiceForm(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Descrição do serviço"
-              />
+              <Input id="description" value={serviceForm.description} onChange={(e) => setServiceForm(prev => ({ ...prev, description: e.target.value }))} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="duration">Duração (min) *</Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  value={serviceForm.duration}
-                  onChange={(e) => setServiceForm(prev => ({ ...prev, duration: e.target.value }))}
-                  placeholder="45"
-                />
+                <Input id="duration" type="number" value={serviceForm.duration} onChange={(e) => setServiceForm(prev => ({ ...prev, duration: e.target.value }))} />
+              </div>
+              <div>
+                <Label htmlFor="price">Preço (R$) *</Label>
+                <Input id="price" type="number" step="0.01" value={serviceForm.price} onChange={(e) => setServiceForm(prev => ({ ...prev, price: e.target.value }))} />
               </div>
               <div>
                 <Label htmlFor="points">Pontos *</Label>
-                <Input
-                  id="points"
-                  type="number"
-                  value={serviceForm.points}
-                  onChange={(e) => setServiceForm(prev => ({ ...prev, points: e.target.value }))}
-                  placeholder="10"
-                />
+                <Input id="points" type="number" value={serviceForm.points} onChange={(e) => setServiceForm(prev => ({ ...prev, points: e.target.value }))} />
               </div>
             </div>
             <div>
-              <Label htmlFor="price">Preço (R$) *</Label>
-              <Input
-                id="price"
-                type="number"
-                step="0.01"
-                value={serviceForm.price}
-                onChange={(e) => setServiceForm(prev => ({ ...prev, price: e.target.value }))}
-                placeholder="35.00"
-              />
-            </div>
-            <div>
               <Label htmlFor="imageUrl">URL da Imagem</Label>
-              <Input
-                id="imageUrl"
-                value={serviceForm.imageUrl}
-                onChange={(e) => setServiceForm(prev => ({ ...prev, imageUrl: e.target.value }))}
-                placeholder="https://..."
-              />
+              <Input id="imageUrl" value={serviceForm.imageUrl} onChange={(e) => setServiceForm(prev => ({ ...prev, imageUrl: e.target.value }))} />
             </div>
             <div className="flex justify-end space-x-2 pt-4">
-              <Button variant="outline" onClick={() => {
-                setIsNewServiceOpen(false);
-                setEditingService(null);
-                resetForm();
-              }}>
-                Cancelar
-              </Button>
-              <Button 
-                onClick={handleSaveService} 
-                disabled={createServiceMutation.isPending || updateServiceMutation.isPending}
-              >
+              <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
+              <Button onClick={handleSaveService} disabled={createServiceMutation.isPending || updateServiceMutation.isPending}>
                 {createServiceMutation.isPending || updateServiceMutation.isPending ? "Salvando..." : "Salvar"}
               </Button>
             </div>

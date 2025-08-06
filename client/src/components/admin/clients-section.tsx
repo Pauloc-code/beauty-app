@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,15 +14,70 @@ import {
   Trash2, 
   Search 
 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import type { InsertClient, Client } from "@shared/schema";
+import { db } from "@/lib/firebase"; // Importa a conexão com o Firebase
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp, query, where } from "firebase/firestore";
+import type { Client } from "@shared/schema"; // Mantemos o tipo para consistência
+
+// Definimos o tipo Client com id opcional para novos clientes
+type ClientData = Omit<Client, 'id' | 'createdAt' | 'updatedAt'> & {
+  id?: string;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+};
+
+// Funções para interagir com o Firebase
+const fetchClients = async (): Promise<Client[]> => {
+  const clientsCollection = collection(db, "clients");
+  const clientSnapshot = await getDocs(clientsCollection);
+  const clientList = clientSnapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      // Converte Timestamps do Firebase para Date
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
+    } as Client;
+  });
+  return clientList;
+};
+
+const addClient = async (client: Omit<ClientData, 'id'>) => {
+  const clientsCollection = collection(db, "clients");
+  const docRef = await addDoc(clientsCollection, {
+    ...client,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now()
+  });
+  return { id: docRef.id, ...client };
+};
+
+const updateClient = async (id: string, client: Partial<ClientData>) => {
+  const clientDoc = doc(db, "clients", id);
+  await updateDoc(clientDoc, {
+    ...client,
+    updatedAt: Timestamp.now()
+  });
+};
+
+const deleteClient = async (id: string) => {
+  const clientDoc = doc(db, "clients", id);
+  await deleteDoc(clientDoc);
+};
+
+const checkCpfExists = async (cpf: string): Promise<boolean> => {
+    const q = query(collection(db, "clients"), where("cpf", "==", cpf));
+    const querySnapshot = await getDocs(q);
+    return !querySnapshot.empty;
+};
+
 
 export default function ClientsSection() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [isNewClientOpen, setIsNewClientOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [clientForm, setClientForm] = useState({
     name: "",
@@ -33,76 +88,76 @@ export default function ClientsSection() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: clients, isLoading } = useQuery({
-    queryKey: ["/api/clients"],
+  const { data: clients = [], isLoading } = useQuery({
+    queryKey: ["clients"],
+    queryFn: fetchClients,
   });
 
   const createClientMutation = useMutation({
-    mutationFn: (client: InsertClient) => apiRequest("POST", "/api/clients", client),
+    mutationFn: addClient,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
-      setIsNewClientOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      setIsModalOpen(false);
       resetForm();
       toast({
         title: "Cliente criado",
         description: "Cliente foi criado com sucesso.",
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Erro",
-        description: "Não foi possível criar o cliente.",
+        description: `Não foi possível criar o cliente: ${error.message}`,
         variant: "destructive",
       });
     },
   });
 
   const updateClientMutation = useMutation({
-    mutationFn: ({ id, client }: { id: string, client: Partial<InsertClient> }) => 
-      apiRequest("PATCH", `/api/clients/${id}`, client),
+    mutationFn: ({ id, client }: { id: string, client: Partial<ClientData> }) => updateClient(id, client),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
-      setEditingClient(null);
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      setIsModalOpen(false);
       resetForm();
       toast({
         title: "Cliente atualizado",
         description: "Cliente foi atualizado com sucesso.",
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Erro",
-        description: "Não foi possível atualizar o cliente.",
+        description: `Não foi possível atualizar o cliente: ${error.message}`,
         variant: "destructive",
       });
     },
   });
 
   const deleteClientMutation = useMutation({
-    mutationFn: (clientId: string) => apiRequest("DELETE", `/api/clients/${clientId}`),
+    mutationFn: deleteClient,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
       toast({
         title: "Cliente removido",
         description: "Cliente foi removido com sucesso.",
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Erro",
-        description: "Não foi possível remover o cliente.",
+        description: `Não foi possível remover o cliente: ${error.message}`,
         variant: "destructive",
       });
     },
   });
 
   const filteredClients = searchTerm 
-    ? (clients as any[] || []).filter((client: any) => 
+    ? clients.filter((client) => 
         client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         client.cpf.includes(searchTerm) ||
         client.phone.includes(searchTerm)
       ) 
-    : (clients as any[] || []);
+    : clients;
 
   const resetForm = () => {
     setClientForm({
@@ -111,24 +166,25 @@ export default function ClientsSection() {
       phone: "",
       email: ""
     });
+    setEditingClient(null);
   };
 
-  const handleOpenNewClient = () => {
-    resetForm();
-    setIsNewClientOpen(true);
+  const handleOpenModal = (client: Client | null = null) => {
+    if (client) {
+      setEditingClient(client);
+      setClientForm({
+        name: client.name,
+        cpf: client.cpf,
+        phone: client.phone,
+        email: client.email || ""
+      });
+    } else {
+      resetForm();
+    }
+    setIsModalOpen(true);
   };
 
-  const handleEditClient = (client: Client) => {
-    setClientForm({
-      name: client.name,
-      cpf: client.cpf,
-      phone: client.phone,
-      email: client.email || ""
-    });
-    setEditingClient(client);
-  };
-
-  const handleSaveClient = () => {
+  const handleSaveClient = async () => {
     if (!clientForm.name || !clientForm.cpf || !clientForm.phone) {
       toast({
         title: "Campos obrigatórios",
@@ -138,16 +194,26 @@ export default function ClientsSection() {
       return;
     }
 
-    const clientData: InsertClient = {
+    const clientData: Omit<ClientData, 'id'> = {
       name: clientForm.name,
       cpf: clientForm.cpf,
       phone: clientForm.phone,
-      email: clientForm.email || undefined
+      email: clientForm.email || "",
+      points: editingClient ? editingClient.points : 0,
     };
 
     if (editingClient) {
       updateClientMutation.mutate({ id: editingClient.id, client: clientData });
     } else {
+        const cpfExists = await checkCpfExists(clientData.cpf);
+        if (cpfExists) {
+            toast({
+                title: "CPF já cadastrado",
+                description: "Este CPF já está associado a outro cliente.",
+                variant: "destructive",
+            });
+            return;
+        }
       createClientMutation.mutate(clientData);
     }
   };
@@ -164,7 +230,7 @@ export default function ClientsSection() {
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900">Gestão de Clientes</h2>
-            <Button onClick={handleOpenNewClient} className="bg-primary text-white hover:bg-primary/90">
+            <Button onClick={() => handleOpenModal()} className="bg-primary text-white hover:bg-primary/90">
               <Plus className="w-4 h-4 mr-2" />
               Nova Cliente
             </Button>
@@ -172,7 +238,6 @@ export default function ClientsSection() {
         </div>
         
         <CardContent className="p-6">
-          {/* Search and Filters */}
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -190,7 +255,6 @@ export default function ClientsSection() {
             </Button>
           </div>
           
-          {/* Clients Table */}
           {isLoading ? (
             <div className="space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
@@ -230,7 +294,7 @@ export default function ClientsSection() {
                       <td className="py-4 px-2">
                         <div className="flex items-center space-x-3">
                           <img 
-                            src="https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-4.0.3&auto=format&fit=crop&w=40&h=40" 
+                            src={`https://api.dicebear.com/8.x/lorelei/svg?seed=${client.name}`}
                             alt={`Cliente ${client.name}`}
                             className="w-10 h-10 rounded-full object-cover"
                           />
@@ -245,7 +309,7 @@ export default function ClientsSection() {
                       </td>
                       <td className="py-4 px-2 text-gray-600">{client.phone}</td>
                       <td className="py-4 px-2 text-gray-600">
-                        {format(new Date(client.createdAt), "dd/MM/yyyy", { locale: ptBR })}
+                        {format(client.createdAt, "dd/MM/yyyy", { locale: ptBR })}
                       </td>
                       <td className="py-4 px-2">
                         <Badge variant="secondary" className="bg-accent text-white">
@@ -265,7 +329,7 @@ export default function ClientsSection() {
                             variant="ghost"
                             size="sm"
                             className="text-gray-400 hover:text-primary"
-                            onClick={() => handleEditClient(client)}
+                            onClick={() => handleOpenModal(client)}
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
@@ -295,14 +359,7 @@ export default function ClientsSection() {
         </CardContent>
       </Card>
 
-      {/* Client Modal */}
-      <Dialog open={isNewClientOpen || !!editingClient} onOpenChange={(open) => {
-        if (!open) {
-          setIsNewClientOpen(false);
-          setEditingClient(null);
-          resetForm();
-        }
-      }}>
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
@@ -328,7 +385,9 @@ export default function ClientsSection() {
                 id="cpf"
                 value={clientForm.cpf}
                 onChange={(e) => setClientForm(prev => ({ ...prev, cpf: e.target.value }))}
-                placeholder="000.000.000-00"
+                placeholder="00000000000"
+                maxLength={11}
+                disabled={!!editingClient}
               />
             </div>
             <div>
@@ -352,11 +411,7 @@ export default function ClientsSection() {
             </div>
 
             <div className="flex justify-end space-x-2 pt-4">
-              <Button variant="outline" onClick={() => {
-                setIsNewClientOpen(false);
-                setEditingClient(null);
-                resetForm();
-              }}>
+              <Button variant="outline" onClick={() => setIsModalOpen(false)}>
                 Cancelar
               </Button>
               <Button 
