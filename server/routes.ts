@@ -86,8 +86,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid client data", errors: error.errors });
       }
+      // Log do erro detalhado no servidor
       console.error("Error creating client:", error);
-      res.status(500).json({ message: "Failed to create client" });
+
+      // Envia uma mensagem de erro mais informativa para o cliente
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ message: "Failed to create client", error: errorMessage });
     }
   });
 
