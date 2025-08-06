@@ -12,13 +12,15 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Esta configuração garante que a ligação com a base de dados no Renderr
-// seja segura e aceite o certificado SSL necessário.
-const poolConfig = {
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-};
+// Garante que a string de conexão exige SSL, como necessário pelo Render.
+let connectionString = process.env.DATABASE_URL;
+if (!connectionString.includes("sslmode=require")) {
+  connectionString += "?sslmode=require";
+}
 
-const pool = new Pool(poolConfig);
+// A configuração do pool agora usa a string de conexão ajustada.
+const pool = new Pool({
+  connectionString: connectionString,
+});
 
 export const db = drizzle(pool, { schema });
