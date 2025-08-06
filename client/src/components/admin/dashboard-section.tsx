@@ -8,9 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertAppointmentSchema } from "@shared/schema";
 import { z } from "zod";
-import { apiRequest } from "@/lib/queryClient";
 import StatsCard from "@/components/ui/stats-card";
 import { 
   Calendar, 
@@ -18,95 +16,135 @@ import {
   UserPlus, 
   TrendingUp,
   CalendarPlus,
-  Users,
-  Megaphone,
   Camera,
   Edit,
-  X,
   Check,
-  Plus,
-  Trash2,
+  X,
   Settings
 } from "lucide-react";
 import { format } from "date-fns";
-import { fromZonedTime } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 import { useState, useMemo } from "react";
+import { db } from "@/lib/firebase";
+import { collection, getDocs, addDoc, updateDoc, doc, Timestamp, query, where, orderBy, limit, startOfDay, endOfDay } from "firebase/firestore";
+import type { Client, Service, Appointment, AppointmentWithDetails, GalleryImage, InsertClient, InsertAppointment, InsertGalleryImage } from "@shared/schema";
+
+// --- Funções do Firebase ---
+const fetchTodayStats = async () => {
+  const today = new Date();
+  const startOfToday = startOfDay(today);
+  const endOfToday = endOfDay(today);
+
+  // Agendamentos de hoje
+  const appointmentsQuery = query(
+    collection(db, "appointments"),
+    where("date", ">=", Timestamp.fromDate(startOfToday)),
+    where("date", "<=", Timestamp.fromDate(endOfToday))
+  );
+  const appointmentSnapshot = await getDocs(appointmentsQuery);
+  const todayAppointments = appointmentSnapshot.size;
+
+  // Faturamento de hoje
+  let todayRevenue = 0;
+  appointmentSnapshot.docs.forEach(doc => {
+    const data = doc.data();
+    if (data.status === 'completed') {
+      todayRevenue += parseFloat(data.price || "0");
+    }
+  });
+
+  // Novos clientes na última semana
+  const oneWeekAgo = new Date(today);
+  oneWeekAgo.setDate(today.getDate() - 7);
+  const newClientsQuery = query(collection(db, "clients"), where("createdAt", ">=", Timestamp.fromDate(oneWeekAgo)));
+  const newClientsSnapshot = await getDocs(newClientsQuery);
+  const newClients = newClientsSnapshot.size;
+  
+  // Taxa de ocupação (simplificada)
+  const totalSlots = 10; // Exemplo: 10 horários por dia
+  const occupancyRate = totalSlots > 0 ? Math.round((todayAppointments / totalSlots) * 100) : 0;
+
+  return { todayAppointments, todayRevenue, newClients, occupancyRate: Math.min(occupancyRate, 100) };
+};
+
+const fetchRecentActivities = async (): Promise<any[]> => {
+    const q = query(collection(db, "clients"), orderBy("createdAt", "desc"), limit(5));
+    const querySnapshot = await getDocs(q);
+    const activities = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        type: 'client',
+        action: 'cadastrado',
+        description: `Nova cliente cadastrada: ${doc.data().name}`,
+        timestamp: doc.data().createdAt.toDate(),
+        icon: 'UserPlus',
+        iconBg: 'bg-blue-100'
+    }));
+    return activities;
+};
+
+const fetchAppointments = async (): Promise<AppointmentWithDetails[]> => {
+    const appointmentSnapshot = await getDocs(collection(db, "appointments"));
+    const clientsSnapshot = await getDocs(collection(db, "clients"));
+    const servicesSnapshot = await getDocs(collection(db, "services"));
+
+    const clientsMap = new Map(clientsSnapshot.docs.map(doc => [doc.id, doc.data() as Client]));
+    const servicesMap = new Map(servicesSnapshot.docs.map(doc => [doc.id, doc.data() as Service]));
+
+    return appointmentSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            date: data.date.toDate(),
+            createdAt: data.createdAt.toDate(),
+            updatedAt: data.updatedAt.toDate(),
+            client: clientsMap.get(data.clientId)!,
+            service: servicesMap.get(data.serviceId)!,
+        } as AppointmentWithDetails;
+    });
+};
+
 
 export default function DashboardSection() {
   const [newAppointmentOpen, setNewAppointmentOpen] = useState(false);
   const [newClientOpen, setNewClientOpen] = useState(false);
-  const [promotionOpen, setPromotionOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithDetails | null>(null);
   const [appointmentDetailOpen, setAppointmentDetailOpen] = useState(false);
-  const [editingAppointment, setEditingAppointment] = useState<any>(null);
-  const [editServicesOpen, setEditServicesOpen] = useState(false);
-  const [editingServiceAppointment, setEditingServiceAppointment] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ["/api/stats/today"],
+    queryKey: ["todayStats"],
+    queryFn: fetchTodayStats,
   });
 
-  const { data: allAppointments, isLoading: appointmentsLoading } = useQuery({
-    queryKey: ["/api/appointments"],
+  const { data: allAppointments = [], isLoading: appointmentsLoading } = useQuery({
+    queryKey: ["appointments"],
+    queryFn: fetchAppointments,
   });
-
-
-
-  // Buscar configurações do sistema para usar o fuso horário correto
-  const { data: systemSettings } = useQuery({
-    queryKey: ["/api/system-settings"],
-  });
-
-  // Filtrar agendamentos do dia atual considerando o fuso horário configurado
-  const todayAppointments = (allAppointments as any[])?.filter((appointment: any) => {
-    if (!systemSettings) return false;
-    
-    const appointmentDate = new Date(appointment.date);
-    const today = new Date();
-    const timezone = (systemSettings as any).timezone || 'America/Sao_Paulo';
-    
-    // Converter ambas as datas para o fuso horário local
-    const appointmentLocal = new Date(appointmentDate.toLocaleString("en-US", { timeZone: timezone }));
-    const todayLocal = new Date(today.toLocaleString("en-US", { timeZone: timezone }));
-    
-    return (
-      appointmentLocal.getDate() === todayLocal.getDate() &&
-      appointmentLocal.getMonth() === todayLocal.getMonth() &&
-      appointmentLocal.getFullYear() === todayLocal.getFullYear()
-    );
-  }) || [];
-
-  const { data: clients = [] } = useQuery({
-    queryKey: ["/api/clients"],
-  });
-
-  const { data: services = [] } = useQuery({
-    queryKey: ["/api/services"],
-  });
+  
+  const { data: clients = [] } = useQuery<Client[]>({ queryKey: ['clients'] });
+  const { data: services = [] } = useQuery<Service[]>({ queryKey: ['services'] });
 
   const { data: recentActivities = [] } = useQuery({
-    queryKey: ["/api/activities/recent"],
+    queryKey: ["recentActivities"],
+    queryFn: fetchRecentActivities,
   });
 
-  // Gallery form
-  const galleryForm = useForm({
-    resolver: zodResolver(z.object({
-      title: z.string().min(1, "Título é obrigatório"),
-      category: z.string().min(1, "Categoria é obrigatória"),
-      description: z.string().optional()
-    })),
-    defaultValues: {
-      title: "",
-      category: "",
-      description: ""
-    }
-  });
+  const todayAppointments = useMemo(() => 
+    allAppointments.filter((appointment) => {
+      const appointmentDate = new Date(appointment.date);
+      const today = new Date();
+      return (
+        appointmentDate.getDate() === today.getDate() &&
+        appointmentDate.getMonth() === today.getMonth() &&
+        appointmentDate.getFullYear() === today.getFullYear()
+      );
+  }), [allAppointments]);
 
+  // Forms
   const appointmentForm = useForm({
     resolver: zodResolver(z.object({
       clientId: z.string().min(1, "Cliente é obrigatório"),
@@ -114,212 +152,96 @@ export default function DashboardSection() {
       date: z.string().min(1, "Data é obrigatória"),
       time: z.string().min(1, "Horário é obrigatório"),
       notes: z.string().optional(),
-      price: z.string().optional(),
-      status: z.string().optional()
     })),
     defaultValues: {
       clientId: "",
       serviceId: "",
       date: new Date().toISOString().split('T')[0],
       time: "",
-      status: "scheduled",
       notes: ""
     },
-    mode: "onChange"
   });
 
-  // Edit appointment form
-  const editAppointmentForm = useForm({
-    resolver: zodResolver(z.object({
-      date: z.string().min(1, "Data é obrigatória"),
-      time: z.string().min(1, "Horário é obrigatório"),
-      notes: z.string().optional(),
-      status: z.string().optional(),
-      paymentMethod: z.string().optional()
-    })),
-    defaultValues: {
-      date: "",
-      time: "",
-      notes: "",
-      status: "",
-      paymentMethod: ""
-    }
-  });
-
-  // Create client form
   const clientForm = useForm({
     resolver: zodResolver(z.object({
       name: z.string().min(1, "Nome é obrigatório"),
-      cpf: z.string().min(11, "CPF deve ter 11 dígitos").max(11, "CPF deve ter 11 dígitos"),
+      cpf: z.string().length(11, "CPF deve ter 11 dígitos"),
       email: z.string().email("Email inválido").optional().or(z.literal("")),
       phone: z.string().min(1, "Telefone é obrigatório"),
-      notes: z.string().optional()
     })),
-    defaultValues: {
-      name: "",
-      cpf: "",
-      email: "",
-      phone: "",
-      notes: ""
-    }
+    defaultValues: { name: "", cpf: "", email: "", phone: "" }
   });
 
+  const galleryForm = useForm({
+    resolver: zodResolver(z.object({
+      title: z.string().min(1, "Título é obrigatório"),
+      category: z.string().min(1, "Categoria é obrigatória"),
+      description: z.string().optional()
+    })),
+    defaultValues: { title: "", category: "", description: "" }
+  });
+
+  // Mutations
   const createClientMutation = useMutation({
-    mutationFn: async (data: any) => {
-      console.log("Creating client with data:", data);
-      const response = await apiRequest("POST", "/api/clients", data);
-      return response.json();
+    mutationFn: async (data: InsertClient) => {
+        const docRef = await addDoc(collection(db, "clients"), {
+            ...data,
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now(),
+            points: 0
+        });
+        return { id: docRef.id, ...data };
     },
-    onSuccess: (data) => {
-      console.log("Client created successfully:", data);
-      toast({
-        title: "Sucesso",
-        description: "Cliente cadastrado com sucesso",
-      });
+    onSuccess: () => {
+      toast({ title: "Sucesso", description: "Cliente cadastrado com sucesso" });
       clientForm.reset();
       setNewClientOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/activities/recent"] });
+      queryClient.invalidateQueries({ queryKey: ["clients", "recentActivities"] });
     },
-    onError: (error) => {
-      console.error("Error creating client:", error);
-      toast({
-        title: "Erro",
-        description: error.message || "Erro ao cadastrar cliente",
-        variant: "destructive"
-      });
-    }
-  });
-
-  const uploadGalleryImageMutation = useMutation({
-    mutationFn: async (data: { formData: FormData }) => {
-      console.log("Uploading gallery image");
-      const response = await fetch("/api/gallery/upload", {
-        method: "POST",
-        body: data.formData,
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Erro ao enviar imagem");
-      }
-      
-      return response.json();
-    },
-    onSuccess: (data) => {
-      console.log("Gallery image uploaded successfully:", data);
-      toast({
-        title: "Sucesso",
-        description: "Foto enviada e adicionada à galeria com sucesso",
-      });
-      galleryForm.reset();
-      setGalleryOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["/api/gallery"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/activities/recent"] });
-    },
-    onError: (error) => {
-      console.error("Error uploading gallery image:", error);
-      toast({
-        title: "Erro",
-        description: error.message || "Erro ao enviar foto",
-        variant: "destructive"
-      });
-    }
+    onError: (error: Error) => toast({ title: "Erro", description: error.message, variant: "destructive" })
   });
 
   const createAppointmentMutation = useMutation({
     mutationFn: async (data: any) => {
-      console.log("Dados do formulário:", data);
+      const selectedService = services.find(s => s.id === data.serviceId);
+      if (!selectedService) throw new Error("Serviço não encontrado");
+
+      const localDateTime = new Date(`${data.date}T${data.time}`);
       
-      // Buscar o serviço para obter o preço
-      const selectedService = (services as any[]).find((s: any) => s.id === data.serviceId);
-      if (!selectedService) {
-        throw new Error("Serviço não encontrado");
-      }
-      
-      // Converter horário local para UTC usando date-fns-tz
-      const timezone = systemSettings?.timezone || 'America/Sao_Paulo';
-      const localDateTimeStr = `${data.date}T${data.time}:00`;
-      
-      // Converter usando fromZonedTime para garantir conversão correta
-      const utcDate = fromZonedTime(localDateTimeStr, timezone);
-      
-      const appointmentData = {
+      const appointmentData: InsertAppointment = {
         clientId: data.clientId,
         serviceId: data.serviceId,
-        date: utcDate,
-        status: data.status || "scheduled",
+        date: localDateTime,
+        status: "scheduled",
         price: selectedService.price,
         notes: data.notes || ""
       };
-      
-      console.log("Dados enviados para API:", appointmentData);
-      return apiRequest("POST", "/api/appointments", appointmentData);
+      await addDoc(collection(db, "appointments"), { ...appointmentData, createdAt: Timestamp.now(), updatedAt: Timestamp.now() });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats/today"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/activities/recent"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments", "todayStats", "recentActivities"] });
       setNewAppointmentOpen(false);
       appointmentForm.reset();
-      toast({
-        title: "Sucesso",
-        description: "Agendamento criado com sucesso!"
-      });
+      toast({ title: "Sucesso", description: "Agendamento criado com sucesso!" });
     },
-    onError: (error: any) => {
-      console.error("Erro ao criar agendamento:", error);
-      toast({
-        title: "Erro",
-        description: error.message || "Erro ao criar agendamento",
-        variant: "destructive"
-      });
-    }
+    onError: (error: Error) => toast({ title: "Erro", description: error.message, variant: "destructive" })
   });
 
   const updateAppointmentMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      console.log("Updating appointment:", id, data);
-      
-      // Se data e time foram fornecidos, converter para UTC
-      if (data.date && data.time) {
-        const timezone = (systemSettings as any)?.timezone || 'America/Sao_Paulo';
-        const localDateTimeStr = `${data.date}T${data.time}:00`;
-        const utcDate = fromZonedTime(localDateTimeStr, timezone);
-        data.date = utcDate;
-      }
-      
-      return await apiRequest("PUT", `/api/appointments/${id}`, data);
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Appointment> }) => {
+      const appointmentDoc = doc(db, "appointments", id);
+      await updateDoc(appointmentDoc, { ...data, updatedAt: Timestamp.now() });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats/today"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/activities/recent"] });
-      toast({
-        title: "Sucesso",
-        description: "Status do agendamento atualizado!",
-      });
+      queryClient.invalidateQueries({ queryKey: ["appointments", "todayStats", "recentActivities"] });
+      toast({ title: "Sucesso", description: "Agendamento atualizado!" });
     },
-    onError: (error) => {
-      console.error("Update appointment error:", error);
-      toast({
-        title: "Erro",
-        description: "Erro ao atualizar agendamento",
-        variant: "destructive"
-      });
-    }
+    onError: (error: Error) => toast({ title: "Erro", description: `Erro ao atualizar: ${error.message}`, variant: "destructive" })
   });
 
-  const handleCompleteAppointment = (appointment: any) => {
-    setSelectedAppointment(appointment);
+  const handleCompleteAppointment = (appointment: Appointment) => {
+    setSelectedAppointment(appointment as AppointmentWithDetails);
     setPaymentModalOpen(true);
-  };
-
-  const handleNoShowAppointment = (appointment: any) => {
-    updateAppointmentMutation.mutate({
-      id: appointment.id,
-      data: { status: 'no_show' }
-    });
   };
 
   const handlePaymentSubmit = (paymentMethod: string) => {
@@ -328,7 +250,7 @@ export default function DashboardSection() {
         id: selectedAppointment.id,
         data: { 
           status: 'completed',
-          paymentMethod: paymentMethod,
+          paymentMethod: paymentMethod as any,
           paymentStatus: 'paid'
         }
       });
@@ -337,328 +259,57 @@ export default function DashboardSection() {
     }
   };
 
-  const handleViewDetails = (appointment: any) => {
-    setEditingAppointment(appointment);
-    
-    // Converter data UTC de volta para local para exibição
-    const appointmentDate = new Date(appointment.date);
-    const timezone = systemSettings?.timezone || 'America/Sao_Paulo';
-    const localDateTime = new Date(appointmentDate.toLocaleString("en-US", { timeZone: timezone }));
-    
-    editAppointmentForm.reset({
-      date: localDateTime.toISOString().split('T')[0],
-      time: format(localDateTime, "HH:mm"),
-      notes: appointment.notes || "",
-      status: appointment.status,
-      paymentMethod: appointment.paymentMethod || ""
-    });
-    
+  const handleViewDetails = (appointment: AppointmentWithDetails) => {
+    setSelectedAppointment(appointment);
     setAppointmentDetailOpen(true);
   };
-
-  const handleSaveAppointmentDetails = (data: any) => {
-    if (editingAppointment) {
-      updateAppointmentMutation.mutate({
-        id: editingAppointment.id,
-        data: data
-      });
-      setAppointmentDetailOpen(false);
-      setEditingAppointment(null);
-      editAppointmentForm.reset();
-      toast({
-        title: "Sucesso",
-        description: "Agendamento atualizado com sucesso!"
-      });
-    }
-  };
-
-  const handleEditServices = (appointment: any) => {
-    setEditingServiceAppointment(appointment);
-    setEditServicesOpen(true);
+  
+  const IconMap: { [key: string]: React.ElementType } = {
+    Check, UserPlus, Camera, Calendar, X
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Stats Overview */}
+      {/* Cards de estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatsCard
-          title="Agendamentos Hoje"
-          value={(stats as any)?.todayAppointments?.toString() || "0"}
-          change="+12%"
-          changeLabel="vs. ontem"
-          icon={Calendar}
-          loading={statsLoading}
-        />
-        
-        <StatsCard
-          title="Faturamento Hoje"
-          value={`R$ ${(stats as any)?.todayRevenue?.toFixed(2).replace('.', ',') || "0,00"}`}
-          change="+8%"
-          changeLabel="vs. ontem"
-          icon={DollarSign}
-          variant="success"
-          loading={statsLoading}
-        />
-        
-        <StatsCard
-          title="Novos Clientes"
-          value={(stats as any)?.newClients?.toString() || "0"}
-          change="+25%"
-          changeLabel="vs. semana passada"
-          icon={UserPlus}
-          variant="info"
-          loading={statsLoading}
-        />
-        
-        <StatsCard
-          title="Taxa de Ocupação"
-          value={`${(stats as any)?.occupancyRate || 0}%`}
-          change="+5%"
-          changeLabel="vs. média mensal"
-          icon={TrendingUp}
-          variant="warning"
-          loading={statsLoading}
-        />
+        <StatsCard title="Agendamentos Hoje" value={stats?.todayAppointments?.toString() || "0"} icon={Calendar} loading={statsLoading} />
+        <StatsCard title="Faturamento Hoje" value={`R$ ${stats?.todayRevenue?.toFixed(2).replace('.', ',') || "0,00"}`} icon={DollarSign} variant="success" loading={statsLoading} />
+        <StatsCard title="Novos Clientes" value={stats?.newClients?.toString() || "0"} icon={UserPlus} variant="info" loading={statsLoading} />
+        <StatsCard title="Taxa de Ocupação" value={`${stats?.occupancyRate || 0}%`} icon={TrendingUp} variant="warning" loading={statsLoading} />
       </div>
-      {/* Main Content */}
+      
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Today's Schedule */}
+        {/* Agenda de Hoje */}
         <div className="lg:col-span-2">
           <Card>
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Agenda de Hoje</h3>
-                <Dialog open={newAppointmentOpen} onOpenChange={setNewAppointmentOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="bg-primary text-white hover:bg-primary/90">
-                      <CalendarPlus className="w-4 h-4 mr-2" />
-                      Novo Agendamento
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-md" aria-describedby="new-appointment-description">
-                    <DialogHeader>
-                      <DialogTitle>Novo Agendamento</DialogTitle>
-                      <p id="new-appointment-description" className="text-sm text-gray-600">
-                        Crie um novo agendamento selecionando cliente, serviço, data e horário.
-                      </p>
-                    </DialogHeader>
-                    <Form {...appointmentForm}>
-                      <form onSubmit={appointmentForm.handleSubmit(
-                        (data) => {
-                          console.log("Submitting form with data:", data);
-                          createAppointmentMutation.mutate(data);
-                        },
-                        (errors) => {
-                          console.log("Form validation errors:", errors);
-                          toast({
-                            title: "Erro de validação",
-                            description: "Preencha todos os campos obrigatórios",
-                            variant: "destructive"
-                          });
-                        }
-                      )} className="space-y-4">
-                        <FormField
-                          control={appointmentForm.control}
-                          name="clientId"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Cliente</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Selecione um cliente" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {(clients as any[]).map((client: any) => (
-                                    <SelectItem key={client.id} value={client.id}>
-                                      {client.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={appointmentForm.control}
-                          name="serviceId"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Serviço</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Selecione um serviço" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {(services as any[]).map((service: any) => (
-                                    <SelectItem key={service.id} value={service.id}>
-                                      {service.name} - R$ {parseFloat(service.price).toFixed(2).replace('.', ',')}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <FormField
-                            control={appointmentForm.control}
-                            name="date"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Data</FormLabel>
-                                <FormControl>
-                                  <Input type="date" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={appointmentForm.control}
-                            name="time"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Horário</FormLabel>
-                                <FormControl>
-                                  <Input type="time" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-
-                        <FormField
-                          control={appointmentForm.control}
-                          name="notes"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Observações</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Observações (opcional)" {...field} />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-
-                        <div className="flex justify-end space-x-2 pt-4">
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            onClick={() => setNewAppointmentOpen(false)}
-                          >
-                            Cancelar
-                          </Button>
-                          <Button 
-                            type="submit" 
-                            disabled={createAppointmentMutation.isPending}
-                            className="bg-primary text-white hover:bg-primary/90"
-                          >
-                            {createAppointmentMutation.isPending ? "Criando..." : "Criar Agendamento"}
-                          </Button>
-                        </div>
-                      </form>
-                    </Form>
-                  </DialogContent>
-                </Dialog>
-              </div>
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-semibold">Agenda de Hoje</h3>
             </div>
             <CardContent className="p-6">
-              {appointmentsLoading ? (
+              {appointmentsLoading ? <p>Carregando...</p> : todayAppointments.length > 0 ? (
                 <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex items-center space-x-4 p-4 bg-secondary rounded-lg animate-pulse">
-                      <div className="text-center">
-                        <div className="h-4 bg-gray-200 rounded w-12 mb-1"></div>
-                        <div className="h-3 bg-gray-200 rounded w-8"></div>
-                      </div>
-                      <div className="flex-1">
-                        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                        <div className="h-3 bg-gray-200 rounded w-1/2 mb-1"></div>
-                        <div className="h-3 bg-gray-200 rounded w-2/3"></div>
-                      </div>
-                      <div className="text-right">
-                        <div className="h-4 bg-gray-200 rounded w-16 mb-2"></div>
-                        <div className="flex space-x-1">
-                          <div className="w-6 h-6 bg-gray-200 rounded"></div>
-                          <div className="w-6 h-6 bg-gray-200 rounded"></div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (todayAppointments as any[])?.length ? (
-                <div className="space-y-4">
-                  {(todayAppointments as any[]).map((appointment: any) => (
+                  {todayAppointments.map((appointment) => (
                     <div key={appointment.id} className="flex items-center space-x-4 p-4 rounded-lg bg-[#ffe3ee]">
                       <div className="text-center">
                         <p className="font-medium text-gray-600 text-[18px]">
-                          {format(new Date(appointment.date), "HH:mm")}
+                          {format(appointment.date, "HH:mm")}
                         </p>
-                        <p className="text-gray-500 text-[14px]">{appointment.service.duration}min</p>
                       </div>
                       <div className="flex-1">
-                        <p className="font-semibold text-gray-900">{appointment.client.name}</p>
-                        <p className="text-sm text-gray-600">{appointment.service.name}</p>
-                        <p className="text-sm text-gray-500">{appointment.client.phone}</p>
+                        <p className="font-semibold">{appointment.client?.name}</p>
+                        <p className="text-sm text-gray-600">{appointment.service?.name}</p>
                       </div>
                       <div className="text-right">
+                        <p className="text-primary text-[18px] font-bold">
+                          R$ {Number(appointment.price).toFixed(2).replace('.', ',')}
+                        </p>
                         <div className="flex items-center justify-end space-x-2 mt-2">
-                          <p className="text-primary text-left text-[18px] font-bold">
-                            R$ {parseFloat(appointment.price).toFixed(2).replace('.', ',')}
-                          </p>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="px-2 py-1 text-xs font-medium rounded-md border bg-white border-gray-200 text-[#1f55ed] hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-colors"
-                            onClick={() => handleViewDetails(appointment)}
-                          >
-                            <Edit className="w-3 h-3 mr-1" />
-                            Detalhes
+                          <Button size="sm" variant="outline" onClick={() => handleViewDetails(appointment)}>
+                            <Edit className="w-3 h-3 mr-1" /> Detalhes
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="px-2 py-1 text-xs font-medium rounded-md border bg-white border-gray-200 text-[#9333ea] hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 transition-colors"
-                            onClick={() => handleEditServices(appointment)}
-                          >
-                            <Settings className="w-3 h-3 mr-1" />
-                            Serviços
+                          <Button size="sm" variant="outline" onClick={() => handleCompleteAppointment(appointment)} disabled={appointment.status === 'completed'}>
+                            <Check className="w-3 h-3 mr-1" /> {appointment.status === 'completed' ? 'Concluído' : 'Confirmar'}
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="inline-flex items-center justify-center gap-2 whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-9 px-3 py-1 text-xs font-medium rounded-md border transition-colors bg-white border-gray-200 hover:bg-green-50 hover:border-green-200 hover:text-green-700 text-[#15bd53]"
-                            onClick={() => handleCompleteAppointment(appointment)}
-                            disabled={appointment.status === 'completed'}
-                          >
-                            <Check className="w-3 h-3 mr-1" />
-                            {appointment.status === 'completed' ? 'Concluído' : 'Confirmar'}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="inline-flex items-center justify-center gap-2 whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 h-9 px-3 py-1 text-xs font-medium rounded-md border transition-colors bg-white border-gray-200 hover:bg-yellow-50 hover:border-yellow-200 hover:text-yellow-700 text-[#faa01e]"
-                            onClick={() => handleNoShowAppointment(appointment)}
-                            disabled={appointment.status === 'no_show' || appointment.status === 'completed'}
-                          >
-                            <X className="w-3 h-3 mr-1" />
-                            {appointment.status === 'no_show' ? 'Faltou' : 'Faltou'}
-                          </Button>
-                          {appointment.status === 'scheduled' && (
-                            <span className="inline-block px-2 py-1 bg-blue-50 border border-blue-200 text-blue-700 rounded-md font-medium text-xs">
-                              Agendado
-                            </span>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -674,1078 +325,92 @@ export default function DashboardSection() {
           </Card>
         </div>
 
-        {/* Quick Actions & Recent Activities */}
+        {/* Ações Rápidas e Atividades Recentes */}
         <div className="space-y-6">
-          {/* Quick Actions */}
           <Card>
             <CardContent className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Ações Rápidas</h3>
+              <h3 className="text-lg font-semibold mb-4">Ações Rápidas</h3>
               <div className="space-y-3">
-                <Button 
-                  onClick={() => setNewAppointmentOpen(true)}
-                  className="w-full bg-primary text-white p-3 rounded-lg font-medium text-left justify-start hover:bg-primary/90"
-                >
-                  <CalendarPlus className="w-5 h-5 mr-3" />
-                  Novo Agendamento
-                </Button>
-                <Button 
-                  onClick={() => {
-                    console.log("Opening new client modal");
-                    setNewClientOpen(true);
-                  }}
-                  variant="outline" 
-                  className="w-full p-3 rounded-lg font-medium text-left justify-start"
-                >
-                  <UserPlus className="w-5 h-5 mr-3" />
-                  Cadastrar Cliente
-                </Button>
-                <Button 
-                  onClick={() => {
-                    console.log("Opening promotion modal");
-                    setPromotionOpen(true);
-                  }}
-                  variant="outline" 
-                  className="w-full p-3 rounded-lg font-medium text-left justify-start"
-                >
-                  <Megaphone className="w-5 h-5 mr-3" />
-                  Enviar Promoção
-                </Button>
-                <Button 
-                  onClick={() => {
-                    console.log("Opening gallery upload modal");
-                    setGalleryOpen(true);
-                  }}
-                  variant="outline" 
-                  className="w-full p-3 rounded-lg font-medium text-left justify-start"
-                >
-                  <Camera className="w-5 h-5 mr-3" />
-                  Upload Galeria
-                </Button>
+                <Button onClick={() => setNewAppointmentOpen(true)} className="w-full justify-start"><CalendarPlus className="w-5 h-5 mr-3" />Novo Agendamento</Button>
+                <Button onClick={() => setNewClientOpen(true)} variant="outline" className="w-full justify-start"><UserPlus className="w-5 h-5 mr-3" />Cadastrar Cliente</Button>
+                <Button onClick={() => setGalleryOpen(true)} variant="outline" className="w-full justify-start"><Camera className="w-5 h-5 mr-3" />Upload Galeria</Button>
               </div>
             </CardContent>
           </Card>
-
-          {/* Recent Activities */}
           <Card>
             <CardContent className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Atividades Recentes</h3>
+              <h3 className="text-lg font-semibold mb-4">Atividades Recentes</h3>
               <div className="space-y-3">
-                {recentActivities.length > 0 ? (
-                  recentActivities.map((activity: any) => {
-                    const IconComponent = activity.icon === 'Check' ? Check :
-                                        activity.icon === 'UserPlus' ? UserPlus :
-                                        activity.icon === 'Camera' ? Camera :
-                                        activity.icon === 'Calendar' ? Calendar :
-                                        activity.icon === 'X' ? X : Check;
-                    
-                    const getTimeAgo = (timestamp: string) => {
-                      const now = new Date();
-                      const activityTime = new Date(timestamp);
-                      const diffInMinutes = Math.floor((now.getTime() - activityTime.getTime()) / (1000 * 60));
-                      
-                      if (diffInMinutes < 1) return 'agora mesmo';
-                      if (diffInMinutes < 60) return `há ${diffInMinutes} min`;
-                      
-                      const diffInHours = Math.floor(diffInMinutes / 60);
-                      if (diffInHours < 24) return `há ${diffInHours}h`;
-                      
-                      const diffInDays = Math.floor(diffInHours / 24);
-                      return `há ${diffInDays} dias`;
-                    };
-
+                {recentActivities.length > 0 ? recentActivities.map((activity) => {
+                    const Icon = IconMap[activity.icon] || Check;
                     return (
                       <div key={activity.id} className="flex items-start space-x-3">
-                        <div className={`p-2 rounded-full ${activity.iconBg}`}>
-                          <IconComponent className={`w-3 h-3 ${
-                            activity.iconBg.includes('green') ? 'text-green-600' :
-                            activity.iconBg.includes('blue') ? 'text-blue-600' :
-                            activity.iconBg.includes('purple') ? 'text-purple-600' :
-                            activity.iconBg.includes('red') ? 'text-red-600' :
-                            'text-gray-600'
-                          }`} />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-900">{activity.description}</p>
-                          <p className="text-xs text-gray-500">{getTimeAgo(activity.timestamp)}</p>
+                        <div className={`p-2 rounded-full ${activity.iconBg}`}><Icon className="w-3 h-3" /></div>
+                        <div>
+                          <p className="text-sm">{activity.description}</p>
+                          <p className="text-xs text-gray-500">{format(activity.timestamp, "dd/MM/yy HH:mm", { locale: ptBR })}</p>
                         </div>
                       </div>
                     );
-                  })
-                ) : (
-                  <div className="text-center py-4">
-                    <p className="text-sm text-gray-500">Nenhuma atividade recente</p>
-                  </div>
-                )}
+                }) : <p className="text-sm text-gray-500">Nenhuma atividade recente.</p>}
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
-      {/* Modal Cadastrar Cliente */}
+
+      {/* Modals */}
+      <Dialog open={newAppointmentOpen} onOpenChange={setNewAppointmentOpen}>
+        <DialogContent>
+            <DialogHeader><DialogTitle>Novo Agendamento</DialogTitle></DialogHeader>
+            <Form {...appointmentForm}>
+                <form onSubmit={appointmentForm.handleSubmit(data => createAppointmentMutation.mutate(data))} className="space-y-4">
+                    <FormField control={appointmentForm.control} name="clientId" render={({ field }) => (<FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione um cliente" /></SelectTrigger></FormControl><SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                    <FormField control={appointmentForm.control} name="serviceId" render={({ field }) => (<FormItem><FormLabel>Serviço</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione um serviço" /></SelectTrigger></FormControl><SelectContent>{services.map(s => <SelectItem key={s.id} value={s.id}>{s.name} - R$ {Number(s.price).toFixed(2)}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField control={appointmentForm.control} name="date" render={({ field }) => (<FormItem><FormLabel>Data</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={appointmentForm.control} name="time" render={({ field }) => (<FormItem><FormLabel>Horário</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    </div>
+                    <FormField control={appointmentForm.control} name="notes" render={({ field }) => (<FormItem><FormLabel>Observações</FormLabel><FormControl><Input placeholder="Opcional" {...field} /></FormControl></FormItem>)} />
+                    <div className="flex justify-end space-x-2"><Button type="button" variant="outline" onClick={() => setNewAppointmentOpen(false)}>Cancelar</Button><Button type="submit" disabled={createAppointmentMutation.isPending}>Criar</Button></div>
+                </form>
+            </Form>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={newClientOpen} onOpenChange={setNewClientOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Cadastrar Novo Cliente</DialogTitle>
-            <p className="text-sm text-gray-600">
-              Adicione um novo cliente ao sistema com os dados básicos.
-            </p>
-          </DialogHeader>
-          <Form {...clientForm}>
-            <form onSubmit={clientForm.handleSubmit(
-              (data) => {
-                console.log("Submitting client form with data:", data);
-                createClientMutation.mutate(data);
-              },
-              (errors) => {
-                console.log("Client form validation errors:", errors);
-              }
-            )} className="space-y-4">
-              <FormField
-                control={clientForm.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nome Completo</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Digite o nome completo" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={clientForm.control}
-                name="cpf"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>CPF</FormLabel>
-                    <FormControl>
-                      <Input placeholder="12345678901" maxLength={11} {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={clientForm.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email (opcional)</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="cliente@email.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={clientForm.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Telefone</FormLabel>
-                    <FormControl>
-                      <Input placeholder="(11) 99999-9999" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={clientForm.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Observações (opcional)</FormLabel>
-                    <FormControl>
-                      <textarea 
-                        className="w-full mt-1 p-2 border rounded-md h-20 text-sm resize-none"
-                        placeholder="Observações sobre o cliente..."
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="flex gap-3 pt-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setNewClientOpen(false)}
-                  className="flex-1"
-                >
-                  Cancelar
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="flex-1"
-                  disabled={createClientMutation.isPending}
-                >
-                  {createClientMutation.isPending ? "Criando..." : "Cadastrar Cliente"}
-                </Button>
-              </div>
-            </form>
-          </Form>
+        <DialogContent>
+            <DialogHeader><DialogTitle>Cadastrar Cliente</DialogTitle></DialogHeader>
+            <Form {...clientForm}>
+                <form onSubmit={clientForm.handleSubmit(data => createClientMutation.mutate(data as InsertClient))} className="space-y-4">
+                    <FormField control={clientForm.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nome</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={clientForm.control} name="cpf" render={({ field }) => (<FormItem><FormLabel>CPF</FormLabel><FormControl><Input {...field} maxLength={11} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={clientForm.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Telefone</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={clientForm.control} name="email" render={({ field }) => (<FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <div className="flex justify-end space-x-2"><Button type="button" variant="outline" onClick={() => setNewClientOpen(false)}>Cancelar</Button><Button type="submit" disabled={createClientMutation.isPending}>Cadastrar</Button></div>
+                </form>
+            </Form>
         </DialogContent>
       </Dialog>
-      {/* Modal Enviar Promoção */}
-      <Dialog open={promotionOpen} onOpenChange={setPromotionOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Enviar Promoção</DialogTitle>
-            <p className="text-sm text-gray-600">
-              Envie uma mensagem promocional para seus clientes.
-            </p>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Título da Promoção</label>
-              <Input placeholder="Ex: Desconto de 20% em nail art" className="mt-1" />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Mensagem</label>
-              <textarea 
-                className="w-full mt-1 p-2 border rounded-md h-20 text-sm"
-                placeholder="Digite a mensagem promocional..."
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Enviar para</label>
-              <Select>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Selecione o público" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os clientes</SelectItem>
-                  <SelectItem value="active">Clientes ativos</SelectItem>
-                  <SelectItem value="vip">Clientes VIP</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex gap-3 pt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  console.log("Promotion modal cancelled");
-                  setPromotionOpen(false);
-                }}
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-              <Button 
-                onClick={() => {
-                  console.log("Sending promotion");
-                  toast({
-                    title: "Promoção Enviada",
-                    description: "Mensagem promocional enviada com sucesso!",
-                  });
-                  setPromotionOpen(false);
-                }}
-                className="flex-1"
-              >
-                Enviar Promoção
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-      {/* Modal Upload Galeria */}
-      <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Upload para Galeria</DialogTitle>
-            <p className="text-sm text-gray-600">
-              Adicione novas fotos dos seus trabalhos à galeria.
-            </p>
-          </DialogHeader>
-          <Form {...galleryForm}>
-            <form onSubmit={galleryForm.handleSubmit(
-              (data) => {
-                console.log("Submitting gallery form with data:", data);
-                
-                // Obter o arquivo do input
-                const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-                const file = fileInput?.files?.[0];
-                
-                if (!file) {
-                  toast({
-                    title: "Erro",
-                    description: "Selecione uma imagem",
-                    variant: "destructive"
-                  });
-                  return;
-                }
-                
-                // Criar FormData para upload
-                const formData = new FormData();
-                formData.append('image', file);
-                formData.append('title', data.title);
-                formData.append('category', data.category);
-                if (data.description) {
-                  formData.append('description', data.description);
-                }
-                
-                uploadGalleryImageMutation.mutate({ formData });
-              },
-              (errors) => {
-                console.log("Gallery form validation errors:", errors);
-              }
-            )} className="space-y-4">
-              <FormField
-                control={galleryForm.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Título da Foto</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ex: Nail art floral" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={galleryForm.control}
-                name="category"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Categoria</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione a categoria" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="nail-art">Nail Art</SelectItem>
-                        <SelectItem value="manicure">Manicure</SelectItem>
-                        <SelectItem value="pedicure">Pedicure</SelectItem>
-                        <SelectItem value="decoracao">Decoração</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={galleryForm.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Descrição (opcional)</FormLabel>
-                    <FormControl>
-                      <textarea 
-                        className="w-full mt-1 p-2 border rounded-md h-16 text-sm resize-none"
-                        placeholder="Descrição da foto..."
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div>
-                <label className="text-sm font-medium text-gray-700">Arquivo de Imagem</label>
-                <div className="mt-1 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
-                  <Camera className="mx-auto h-8 w-8 text-gray-400" />
-                  <p className="mt-2 text-sm text-gray-600">
-                    Selecione uma imagem do seu dispositivo
-                  </p>
-                  <Input 
-                    type="file" 
-                    accept="image/*" 
-                    className="mt-2"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        // Validar tipo de arquivo
-                        if (!file.type.startsWith('image/')) {
-                          toast({
-                            title: "Erro",
-                            description: "Apenas arquivos de imagem são permitidos",
-                            variant: "destructive"
-                          });
-                          e.target.value = '';
-                          return;
-                        }
-                        
-                        // Validar tamanho (10MB max)
-                        if (file.size > 10 * 1024 * 1024) {
-                          toast({
-                            title: "Erro", 
-                            description: "A imagem deve ter no máximo 10MB",
-                            variant: "destructive"
-                          });
-                          e.target.value = '';
-                          return;
-                        }
-                      }
-                    }}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Máximo 10MB. Formatos: JPG, PNG, WEBP
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setGalleryOpen(false)}
-                  className="flex-1"
-                >
-                  Cancelar
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="flex-1"
-                  disabled={uploadGalleryImageMutation.isPending}
-                >
-                  {uploadGalleryImageMutation.isPending ? "Enviando..." : "Enviar para Galeria"}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-      {/* Modal Forma de Pagamento */}
+
       <Dialog open={paymentModalOpen} onOpenChange={setPaymentModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Finalizar Atendimento</DialogTitle>
-            <p className="text-sm text-gray-600">
-              Selecione a forma de pagamento recebida para {selectedAppointment?.client?.name}
-            </p>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="font-medium">{selectedAppointment?.service?.name}</p>
-              <p className="text-primary font-semibold">
-                R$ {selectedAppointment?.price ? parseFloat(selectedAppointment.price).toFixed(2).replace('.', ',') : '0,00'}
-              </p>
+        <DialogContent>
+            <DialogHeader><DialogTitle>Finalizar Atendimento</DialogTitle></DialogHeader>
+            <div className="grid grid-cols-2 gap-3 py-4">
+                <Button onClick={() => handlePaymentSubmit('cash')} className="h-16">Dinheiro</Button>
+                <Button onClick={() => handlePaymentSubmit('pix')} className="h-16">PIX</Button>
+                <Button onClick={() => handlePaymentSubmit('card')} className="h-16">Cartão</Button>
+                <Button onClick={() => handlePaymentSubmit('credit')} className="h-16">Fiado</Button>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Button 
-                onClick={() => handlePaymentSubmit('cash')}
-                className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg"
-                disabled={updateAppointmentMutation.isPending}
-              >
-                💰 Dinheiro
-              </Button>
-              <Button 
-                onClick={() => handlePaymentSubmit('pix')}
-                className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg"
-                disabled={updateAppointmentMutation.isPending}
-              >
-                📱 PIX
-              </Button>
-              <Button 
-                onClick={() => handlePaymentSubmit('card')}
-                className="bg-purple-600 hover:bg-purple-700 text-white p-3 rounded-lg"
-                disabled={updateAppointmentMutation.isPending}
-              >
-                💳 Cartão
-              </Button>
-              <Button 
-                onClick={() => handlePaymentSubmit('credit')}
-                className="bg-orange-600 hover:bg-orange-700 text-white p-3 rounded-lg"
-                disabled={updateAppointmentMutation.isPending}
-              >
-                📝 Fiado
-              </Button>
-            </div>
-            <div className="flex gap-3 pt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setPaymentModalOpen(false);
-                  setSelectedAppointment(null);
-                }}
-                className="flex-1"
-                disabled={updateAppointmentMutation.isPending}
-              >
-                Cancelar
-              </Button>
-            </div>
-          </div>
         </DialogContent>
       </Dialog>
-      {/* Modal Detalhes do Agendamento */}
+
       <Dialog open={appointmentDetailOpen} onOpenChange={setAppointmentDetailOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Detalhes do Agendamento</DialogTitle>
-            <p className="text-sm text-gray-600">
-              Visualize e edite as informações do agendamento de {editingAppointment?.client?.name}
-            </p>
-          </DialogHeader>
-          <Form {...editAppointmentForm}>
-            <form onSubmit={editAppointmentForm.handleSubmit(
-              (data) => {
-                console.log("Updating appointment with data:", data);
-                handleSaveAppointmentDetails(data);
-              },
-              (errors) => {
-                console.log("Edit appointment form validation errors:", errors);
-              }
-            )} className="space-y-4">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="font-medium text-gray-900">{editingAppointment?.client?.name}</p>
-                <p className="text-sm text-gray-600">{editingAppointment?.service?.name}</p>
-                <p className="text-sm text-gray-500">{editingAppointment?.client?.phone}</p>
-                <div className="flex justify-between items-center mt-2">
-                  <p className="text-primary font-semibold">
-                    R$ {editingAppointment?.price ? parseFloat(editingAppointment.price).toFixed(2).replace('.', ',') : '0,00'}
-                  </p>
-                  {editingAppointment?.status === 'completed' && editingAppointment?.paymentMethod && (
-                    <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-md font-medium">
-                      {editingAppointment.paymentMethod === 'cash' && '💰 Dinheiro'}
-                      {editingAppointment.paymentMethod === 'pix' && '📱 PIX'}
-                      {editingAppointment.paymentMethod === 'card' && '💳 Cartão'}
-                      {editingAppointment.paymentMethod === 'credit' && '📝 Fiado'}
-                    </span>
-                  )}
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <FormField
-                  control={editAppointmentForm.control}
-                  name="date"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Data</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editAppointmentForm.control}
-                  name="time"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Horário</FormLabel>
-                      <FormControl>
-                        <Input type="time" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={editAppointmentForm.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o status" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="scheduled">Agendado</SelectItem>
-                        <SelectItem value="completed">Concluído</SelectItem>
-                        <SelectItem value="no_show">Faltou</SelectItem>
-                        <SelectItem value="cancelled">Cancelado</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={editAppointmentForm.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Observações</FormLabel>
-                    <FormControl>
-                      <textarea 
-                        className="w-full mt-1 p-2 border rounded-md h-20 text-sm resize-none"
-                        placeholder="Observações sobre o agendamento..."
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {editingAppointment?.status === 'completed' && (
-                <FormField
-                  control={editAppointmentForm.control}
-                  name="paymentMethod"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Forma de Pagamento</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione a forma de pagamento" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="cash">💰 Dinheiro</SelectItem>
-                          <SelectItem value="pix">📱 PIX</SelectItem>
-                          <SelectItem value="card">💳 Cartão</SelectItem>
-                          <SelectItem value="credit">📝 Fiado</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-
-              <div className="flex gap-3 pt-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => {
-                    setAppointmentDetailOpen(false);
-                    setEditingAppointment(null);
-                    editAppointmentForm.reset();
-                  }}
-                  className="flex-1"
-                >
-                  Cancelar
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="flex-1"
-                  disabled={updateAppointmentMutation.isPending}
-                >
-                  {updateAppointmentMutation.isPending ? "Salvando..." : "Salvar Alterações"}
-                </Button>
-              </div>
-            </form>
-          </Form>
+        <DialogContent>
+            <DialogHeader><DialogTitle>Detalhes do Agendamento</DialogTitle></DialogHeader>
+            {selectedAppointment && <div>{selectedAppointment.client.name}</div>}
         </DialogContent>
       </Dialog>
-
-      {/* Modal Editar Serviços do Agendamento */}
-      <Dialog open={editServicesOpen} onOpenChange={setEditServicesOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Editar Serviços do Agendamento</DialogTitle>
-            <DialogDescription>
-              Altere o serviço principal ou adicione serviços extras ao agendamento. 
-              {editingServiceAppointment && ` Cliente: ${editingServiceAppointment.client?.name}`}
-            </DialogDescription>
-          </DialogHeader>
-          <AppointmentServicesEditor
-            appointmentId={editingServiceAppointment?.id}
-            onClose={() => setEditServicesOpen(false)}
-            services={services || []}
-          />
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-// Componente para edição de múltiplos serviços do agendamento
-function AppointmentServicesEditor({ 
-  appointmentId, 
-  onClose, 
-  services 
-}: { 
-  appointmentId: string; 
-  onClose: () => void; 
-  services: any[];
-}) {
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  // Buscar dados do agendamento principal
-  const { data: appointmentData } = useQuery({
-    queryKey: [`/api/appointments`],
-    enabled: !!appointmentId,
-  });
-
-  // Buscar serviços adicionais do agendamento
-  const { data: appointmentServices, isLoading } = useQuery({
-    queryKey: [`/api/appointments/${appointmentId}/services`],
-    enabled: !!appointmentId,
-  });
-
-  // Encontrar o agendamento atual
-  const currentAppointment = (appointmentData as any[])?.find((apt: any) => apt.id === appointmentId);
-
-  // Mutation para adicionar serviço
-  const addServiceMutation = useMutation({
-    mutationFn: async (data: { serviceId: string; price: string }) => {
-      return await apiRequest("POST", `/api/appointments/${appointmentId}/services`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/appointments/${appointmentId}/services`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats/today"] });
-      toast({
-        title: "Sucesso",
-        description: "Serviço adicionado com sucesso!",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Erro",
-        description: "Erro ao adicionar serviço",
-        variant: "destructive"
-      });
-    }
-  });
-
-  // Mutation para remover serviço
-  const removeServiceMutation = useMutation({
-    mutationFn: async (serviceId: string) => {
-      return await apiRequest("DELETE", `/api/appointment-services/${serviceId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/appointments/${appointmentId}/services`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats/today"] });
-      toast({
-        title: "Sucesso",
-        description: "Serviço removido com sucesso!",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Erro",
-        description: "Erro ao remover serviço",
-        variant: "destructive"
-      });
-    }
-  });
-
-  // Mutation para alterar serviço principal
-  const updateMainServiceMutation = useMutation({
-    mutationFn: async (data: { serviceId: string; price: string }) => {
-      return await apiRequest("PUT", `/api/appointments/${appointmentId}`, {
-        serviceId: data.serviceId,
-        price: data.price
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats/today"] });
-      toast({
-        title: "Sucesso",
-        description: "Serviço principal alterado com sucesso!",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Erro",
-        description: "Erro ao alterar serviço principal",
-        variant: "destructive"
-      });
-    }
-  });
-
-  // Estados para controlar edição do serviço principal
-  const [editingMainService, setEditingMainService] = useState(false);
-
-  // Form para adicionar novo serviço
-  const addServiceForm = useForm({
-    resolver: zodResolver(z.object({
-      serviceId: z.string().min(1, "Selecione um serviço"),
-      price: z.string().min(1, "Preço é obrigatório")
-    })),
-    defaultValues: {
-      serviceId: "",
-      price: ""
-    }
-  });
-
-  // Form para alterar serviço principal
-  const mainServiceForm = useForm({
-    resolver: zodResolver(z.object({
-      serviceId: z.string().min(1, "Selecione um serviço"),
-      price: z.string().min(1, "Preço é obrigatório")
-    })),
-    defaultValues: {
-      serviceId: currentAppointment?.serviceId || "",
-      price: currentAppointment?.price || ""
-    }
-  });
-
-  const handleAddService = (data: any) => {
-    addServiceMutation.mutate(data);
-    addServiceForm.reset();
-  };
-
-  const handleUpdateMainService = (data: any) => {
-    updateMainServiceMutation.mutate(data);
-    setEditingMainService(false);
-  };
-
-  // Calcular valor total de todos os serviços
-  const totalValue = useMemo(() => {
-    let total = 0;
-    
-    // Adicionar valor do serviço principal
-    if (currentAppointment?.price) {
-      total += parseFloat(currentAppointment.price);
-    }
-    
-    // Adicionar valores dos serviços adicionais
-    (appointmentServices as any[])?.forEach((item: any) => {
-      total += parseFloat(item.price || 0);
-    });
-    
-    return total;
-  }, [currentAppointment, appointmentServices]);
-
-  if (isLoading) {
-    return <div className="p-4 text-center">Carregando serviços...</div>;
-  }
-
-  return (
-    <div className="space-y-4">
-      {/* Resumo do Valor Total */}
-      <div className="bg-primary/10 p-4 rounded-lg border">
-        <div className="flex justify-between items-center">
-          <span className="font-medium text-gray-900">Valor Total:</span>
-          <span className="text-lg font-bold text-primary">
-            R$ {totalValue.toFixed(2).replace('.', ',')}
-          </span>
-        </div>
-      </div>
-
-      {/* Lista de serviços atuais */}
-      <div>
-        <h4 className="font-medium text-gray-900 mb-3">Serviços Incluídos</h4>
-        <div className="space-y-2">
-          {/* Serviço Principal */}
-          {currentAppointment && (
-            <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div>
-                <p className="font-medium text-gray-900">
-                  {currentAppointment.service?.name}
-                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
-                    Principal
-                  </span>
-                </p>
-                <p className="text-sm text-gray-600">
-                  R$ {parseFloat(currentAppointment.price || 0).toFixed(2).replace('.', ',')}
-                </p>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setEditingMainService(true);
-                  mainServiceForm.setValue("serviceId", currentAppointment.serviceId);
-                  mainServiceForm.setValue("price", currentAppointment.price);
-                }}
-                className="text-blue-600 hover:text-blue-700"
-              >
-                <Edit className="w-4 h-4" />
-              </Button>
-            </div>
-          )}
-
-          {/* Serviços Adicionais */}
-          {(appointmentServices as any[])?.map((item: any) => (
-            <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p className="font-medium text-gray-900">
-                  {item.service?.name}
-                  <span className="ml-2 px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs font-medium">
-                    Adicional
-                  </span>
-                </p>
-                <p className="text-sm text-gray-600">R$ {parseFloat(item.price).toFixed(2).replace('.', ',')}</p>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => removeServiceMutation.mutate(item.id)}
-                disabled={removeServiceMutation.isPending}
-                className="text-red-600 hover:text-red-700"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-          ))}
-
-          {/* Mensagem quando não há serviços adicionais */}
-          {(!(appointmentServices as any[]) || (appointmentServices as any[]).length === 0) && (
-            <p className="text-sm text-gray-500 text-center py-4 italic">
-              Apenas o serviço principal está incluído
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Formulário para editar serviço principal */}
-      {editingMainService && (
-        <div className="border-t pt-4">
-          <h4 className="font-medium text-gray-900 mb-3">Alterar Serviço Principal</h4>
-          <Form {...mainServiceForm}>
-            <form onSubmit={mainServiceForm.handleSubmit(handleUpdateMainService)} className="space-y-3">
-              <FormField
-                control={mainServiceForm.control}
-                name="serviceId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Novo Serviço Principal</FormLabel>
-                    <Select onValueChange={(value) => {
-                      field.onChange(value);
-                      const selectedService = services.find((s: any) => s.id === value);
-                      if (selectedService) {
-                        mainServiceForm.setValue("price", selectedService.price);
-                      }
-                    }} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione um serviço" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {services.map((service: any) => (
-                          <SelectItem key={service.id} value={service.id}>
-                            {service.name} - R$ {parseFloat(service.price).toFixed(2).replace('.', ',')}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={mainServiceForm.control}
-                name="price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Preço</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="flex gap-3 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setEditingMainService(false)}
-                  className="flex-1"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  className="flex-1"
-                  disabled={updateMainServiceMutation.isPending}
-                >
-                  <Edit className="w-4 h-4 mr-1" />
-                  {updateMainServiceMutation.isPending ? "Alterando..." : "Alterar Serviço"}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </div>
-      )}
-
-      {/* Formulário para adicionar novo serviço */}
-      <div className="border-t pt-4">
-        <h4 className="font-medium text-gray-900 mb-3">Adicionar Serviço Extra</h4>
-        <Form {...addServiceForm}>
-          <form onSubmit={addServiceForm.handleSubmit(handleAddService)} className="space-y-3">
-            <FormField
-              control={addServiceForm.control}
-              name="serviceId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Serviço</FormLabel>
-                  <Select onValueChange={(value) => {
-                    field.onChange(value);
-                    // Auto-preencher preço baseado no serviço selecionado
-                    const selectedService = services.find((s: any) => s.id === value);
-                    if (selectedService) {
-                      addServiceForm.setValue("price", selectedService.price);
-                    }
-                  }} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um serviço" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {services.map((service: any) => (
-                        <SelectItem key={service.id} value={service.id}>
-                          {service.name} - R$ {parseFloat(service.price).toFixed(2).replace('.', ',')}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={addServiceForm.control}
-              name="price"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Preço</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="flex gap-3 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onClose}
-                className="flex-1"
-              >
-                Fechar
-              </Button>
-              <Button
-                type="submit"
-                className="flex-1"
-                disabled={addServiceMutation.isPending}
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                {addServiceMutation.isPending ? "Adicionando..." : "Adicionar"}
-              </Button>
-            </div>
-          </form>
-        </Form>
-      </div>
     </div>
   );
 }
