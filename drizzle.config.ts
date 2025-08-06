@@ -1,6 +1,3 @@
-// No seu projeto, encontre e abra o ficheiro localizado em: drizzle.config.ts
-// Apague todo o conteúdo dele e substitua por este código.
-
 import { defineConfig } from "drizzle-kit";
 
 if (!process.env.DATABASE_URL) {

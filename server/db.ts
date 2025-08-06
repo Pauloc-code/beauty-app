@@ -12,7 +12,7 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Esta configuração garante que a ligação com a base de dados no Render
+// Esta configuração garante que a ligação com a base de dados no Renderr
 // seja segura e aceite o certificado SSL necessário.
 const poolConfig = {
   connectionString: process.env.DATABASE_URL,
