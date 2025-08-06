@@ -94,10 +94,12 @@ export interface IStorage {
   }>>;
 
   // System Settings methods
-  getSystemSettings(): Promise<SystemSettings[]>;
-  getSystemSetting(key: string): Promise<SystemSettings | undefined>;
-  upsertSystemSetting(key: string, value: string): Promise<SystemSettings>;
-  initializeSystemSettings(): Promise<SystemSettings>;
+  getSystemSettings(): Promise<SystemSettings>;
+  updateSystemSettings(updates: Partial<SystemSettings>): Promise<SystemSettings>;
+
+  // Theme methods
+  getTheme(): Promise<any>;
+  updateTheme(themeData: any): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -380,41 +382,56 @@ export class DatabaseStorage implements IStorage {
     newClients: number;
     occupancyRate: number;
   }> {
-    // Get system settings for timezone
-    const settings = await this.getSystemSettings();
-    const { createTimezoneService } = await import('./timezone-utils');
-    const timezoneService = new (await import('./timezone-utils')).TimezoneService(settings);
-    
-    const allAppointments = await this.getAppointments();
-    const today = new Date();
-    
-    const todayAppointmentsResult = allAppointments.filter(appointment => {
-      return timezoneService.isSameLocalDay(appointment.date, today);
-    });
-    const todayAppointments = todayAppointmentsResult.length;
-
-    const todayRevenue = todayAppointmentsResult
-      .filter(app => app.status === 'completed')
-      .reduce((sum, app) => sum + parseFloat(app.price), 0);
-
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - 7);
-    const newClientsResult = await db
-      .select()
-      .from(clients)
-      .where(gte(clients.createdAt, startOfWeek));
-    const newClients = newClientsResult.length;
-
-    // Simple occupancy calculation (8 hours * 60 minutes / average 45 min per appointment)
-    const totalSlots = Math.floor((8 * 60) / 45);
-    const occupancyRate = Math.round((todayAppointments / totalSlots) * 100);
-
-    return {
-      todayAppointments,
-      todayRevenue,
-      newClients,
-      occupancyRate: Math.min(occupancyRate, 100)
-    };
+    try {
+      // Get system settings for timezone
+      const settings = await this.getSystemSettings();
+      if (!settings) {
+        throw new Error("System settings not found");
+      }
+      
+      const { TimezoneService } = await import('./timezone-utils');
+      const timezoneService = new TimezoneService(settings);
+      
+      const allAppointments = await this.getAppointments();
+      const today = new Date();
+      
+      const todayAppointmentsResult = allAppointments.filter(appointment => {
+        return timezoneService.isSameLocalDay(appointment.date, today);
+      });
+      const todayAppointments = todayAppointmentsResult.length;
+  
+      const todayRevenue = todayAppointmentsResult
+        .filter(app => app.status === 'completed')
+        .reduce((sum, app) => sum + parseFloat(app.price), 0);
+  
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - 7);
+      const newClientsResult = await db
+        .select()
+        .from(clients)
+        .where(gte(clients.createdAt, startOfWeek));
+      const newClients = newClientsResult.length;
+  
+      // Simple occupancy calculation (8 hours * 60 minutes / average 45 min per appointment)
+      const totalSlots = Math.floor((8 * 60) / 45);
+      const occupancyRate = totalSlots > 0 ? Math.round((todayAppointments / totalSlots) * 100) : 0;
+  
+      return {
+        todayAppointments,
+        todayRevenue,
+        newClients,
+        occupancyRate: Math.min(occupancyRate, 100)
+      };
+    } catch (error) {
+      console.error("Error in getTodayStats:", error);
+      // Return default/zeroed stats on error to prevent server crash
+      return {
+        todayAppointments: 0,
+        todayRevenue: 0,
+        newClients: 0,
+        occupancyRate: 0
+      };
+    }
   }
 
   // System Settings
