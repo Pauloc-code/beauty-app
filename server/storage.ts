@@ -27,6 +27,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lte } from "drizzle-orm";
+import { TimezoneService } from './timezone-utils';
 
 export interface IStorage {
   // User methods
@@ -389,7 +390,6 @@ export class DatabaseStorage implements IStorage {
         throw new Error("System settings not found");
       }
       
-      const { TimezoneService } = await import('./timezone-utils');
       const timezoneService = new TimezoneService(settings);
       
       const allAppointments = await this.getAppointments();
