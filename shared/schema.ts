@@ -49,6 +49,20 @@ export interface GalleryImage {
     createdAt: Date;
 }
 
+export interface SystemSettings {
+  id: string;
+  timezone: string;
+  showHolidays: boolean;
+  holidayRegion: string;
+  workingDays: number[];
+  workingHours: {
+    start: string;
+    end: string;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Tipos para dados que serão inseridos (sem id, com Timestamps do Firebase)
 export type InsertClient = Omit<Client, 'id' | 'createdAt' | 'updatedAt'> & {
     createdAt?: Timestamp;

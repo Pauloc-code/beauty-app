@@ -4,25 +4,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Plus, Edit, Trash2, Clock, DollarSign, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp } from "firebase/firestore";
-import type { Service } from "@shared/schema";
+import type { Service, InsertService } from "@shared/schema";
 
-type ServiceData = Omit<Service, 'id' | 'createdAt' | 'updatedAt'> & {
-  id?: string;
-  createdAt?: Timestamp;
-  updatedAt?: Timestamp;
-};
-
-// Funções para interagir com o Firebase
+// --- Funções do Firebase ---
 const fetchServices = async (): Promise<Service[]> => {
   const servicesCollection = collection(db, "services");
   const serviceSnapshot = await getDocs(servicesCollection);
-  const serviceList = serviceSnapshot.docs.map(doc => {
+  return serviceSnapshot.docs.map(doc => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -31,32 +24,23 @@ const fetchServices = async (): Promise<Service[]> => {
       updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
     } as Service;
   });
-  return serviceList;
 };
 
-const addService = async (service: Omit<ServiceData, 'id'>) => {
+const addService = async (service: Omit<InsertService, 'createdAt' | 'updatedAt'>) => {
   const servicesCollection = collection(db, "services");
-  const docRef = await addDoc(servicesCollection, {
+  await addDoc(servicesCollection, {
     ...service,
-    price: parseFloat(service.price),
-    duration: parseInt(service.duration as any, 10),
-    points: parseInt(service.points as any, 10),
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now()
   });
-  return { id: docRef.id, ...service };
 };
 
-const updateService = async (id: string, service: Partial<ServiceData>) => {
+const updateService = async ({ id, service }: { id: string, service: Partial<InsertService> }) => {
   const serviceDoc = doc(db, "services", id);
-  const dataToUpdate = {
+  await updateDoc(serviceDoc, {
     ...service,
-    price: service.price ? parseFloat(service.price) : undefined,
-    duration: service.duration ? parseInt(service.duration as any, 10) : undefined,
-    points: service.points ? parseInt(service.points as any, 10) : undefined,
     updatedAt: Timestamp.now()
-  };
-  await updateDoc(serviceDoc, dataToUpdate);
+  });
 };
 
 const deleteService = async (id: string) => {
@@ -89,67 +73,33 @@ export default function ServicesSection() {
       queryClient.invalidateQueries({ queryKey: ["services"] });
       setIsModalOpen(false);
       resetForm();
-      toast({
-        title: "Serviço criado",
-        description: "O novo serviço foi adicionado com sucesso.",
-      });
+      toast({ title: "Serviço criado com sucesso." });
     },
-    onError: (error: Error) => {
-      toast({
-        title: "Erro",
-        description: `Não foi possível criar o serviço: ${error.message}`,
-        variant: "destructive",
-      });
-    },
+    onError: (error: Error) => toast({ title: "Erro", description: error.message, variant: "destructive" }),
   });
 
   const updateServiceMutation = useMutation({
-    mutationFn: ({ id, service }: { id: string, service: Partial<ServiceData> }) => updateService(id, service),
+    mutationFn: updateService,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
       setIsModalOpen(false);
       resetForm();
-      toast({
-        title: "Serviço atualizado",
-        description: "O serviço foi atualizado com sucesso.",
-      });
+      toast({ title: "Serviço atualizado com sucesso." });
     },
-    onError: (error: Error) => {
-      toast({
-        title: "Erro",
-        description: `Não foi possível atualizar o serviço: ${error.message}`,
-        variant: "destructive",
-      });
-    },
+    onError: (error: Error) => toast({ title: "Erro", description: error.message, variant: "destructive" }),
   });
 
   const deleteServiceMutation = useMutation({
     mutationFn: deleteService,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
-      toast({
-        title: "Serviço removido",
-        description: "O serviço foi removido com sucesso.",
-      });
+      toast({ title: "Serviço removido com sucesso." });
     },
-    onError: (error: Error) => {
-      toast({
-        title: "Erro",
-        description: `Não foi possível remover o serviço: ${error.message}`,
-        variant: "destructive",
-      });
-    },
+    onError: (error: Error) => toast({ title: "Erro", description: error.message, variant: "destructive" }),
   });
 
   const resetForm = () => {
-    setServiceForm({
-      name: "",
-      description: "",
-      duration: "",
-      price: "",
-      imageUrl: "",
-      points: ""
-    });
+    setServiceForm({ name: "", description: "", duration: "", price: "", imageUrl: "", points: "" });
     setEditingService(null);
   };
 
@@ -173,17 +123,18 @@ export default function ServicesSection() {
   const handleSaveService = () => {
     const { name, duration, price, points } = serviceForm;
     if (!name || !duration || !price || !points) {
-      toast({
-        title: "Campos obrigatórios",
-        description: "Nome, Duração, Preço e Pontos são obrigatórios.",
-        variant: "destructive",
-      });
+      toast({ title: "Campos obrigatórios", description: "Nome, Duração, Preço e Pontos são obrigatórios.", variant: "destructive" });
       return;
     }
 
-    const serviceData = {
-        ...serviceForm,
-        active: true,
+    const serviceData: Omit<InsertService, 'createdAt' | 'updatedAt'> = {
+      name: serviceForm.name,
+      description: serviceForm.description,
+      duration: parseInt(serviceForm.duration, 10),
+      price: serviceForm.price,
+      points: parseInt(serviceForm.points, 10),
+      imageUrl: serviceForm.imageUrl,
+      active: true,
     };
 
     if (editingService) {
@@ -200,7 +151,7 @@ export default function ServicesSection() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="space-y-6">
       <Card>
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
@@ -213,25 +164,12 @@ export default function ServicesSection() {
         </div>
         
         <CardContent className="p-6">
-          {isLoading ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center space-x-4 p-4 border border-gray-200 rounded-lg animate-pulse">
-                  <div className="w-20 h-20 bg-gray-200 rounded-lg"></div>
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                    <div className="h-3 bg-gray-200 rounded w-3/4"></div>
-                    <div className="h-3 bg-gray-200 rounded w-1/4"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
+          {isLoading ? <p>Carregando serviços...</p> : (
             <div className="space-y-4">
               {services.map((service) => (
                 <div key={service.id} className="flex items-center space-x-4 p-4 border border-gray-100 rounded-lg hover:bg-gray-50">
                   <img 
-                    src={service.imageUrl || `https://api.dicebear.com/8.x/icons/svg?seed=${service.name}`}
+                    src={service.imageUrl || `https://placehold.co/80x80/fce7f3/ec4899?text=${service.name.charAt(0)}`}
                     alt={service.name}
                     className="w-20 h-20 rounded-lg object-cover"
                   />
@@ -245,12 +183,8 @@ export default function ServicesSection() {
                     </div>
                   </div>
                   <div className="flex flex-col space-y-2">
-                    <Button variant="outline" size="sm" onClick={() => handleOpenModal(service)}>
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleDeleteService(service.id)} disabled={deleteServiceMutation.isPending}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleOpenModal(service)}><Edit className="w-4 h-4" /></Button>
+                    <Button variant="outline" size="sm" onClick={() => handleDeleteService(service.id)} disabled={deleteServiceMutation.isPending}><Trash2 className="w-4 h-4" /></Button>
                   </div>
                 </div>
               ))}
@@ -263,9 +197,7 @@ export default function ServicesSection() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editingService ? "Editar Serviço" : "Novo Serviço"}</DialogTitle>
-            <DialogDescription>
-              {editingService ? "Modifique as informações do serviço." : "Preencha os dados para criar um novo serviço."}
-            </DialogDescription>
+            <DialogDescription>{editingService ? "Modifique as informações do serviço." : "Preencha os dados para criar um novo serviço."}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>

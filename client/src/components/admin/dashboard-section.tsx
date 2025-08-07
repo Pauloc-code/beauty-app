@@ -19,15 +19,14 @@ import {
   Camera,
   Edit,
   Check,
-  X,
-  Settings
+  X
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useState, useMemo } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, addDoc, updateDoc, doc, Timestamp, query, where, orderBy, limit, startOfDay, endOfDay } from "firebase/firestore";
-import type { Client, Service, Appointment, AppointmentWithDetails, GalleryImage, InsertClient, InsertAppointment, InsertGalleryImage } from "@shared/schema";
+import { collection, getDocs, addDoc, updateDoc, doc, Timestamp, query, where, orderBy, limit } from "firebase/firestore";
+import type { Client, Service, Appointment, AppointmentWithDetails, InsertClient, InsertAppointment } from "@shared/schema";
 
 // --- Funções do Firebase ---
 const fetchTodayStats = async () => {
@@ -35,7 +34,6 @@ const fetchTodayStats = async () => {
   const startOfToday = startOfDay(today);
   const endOfToday = endOfDay(today);
 
-  // Agendamentos de hoje
   const appointmentsQuery = query(
     collection(db, "appointments"),
     where("date", ">=", Timestamp.fromDate(startOfToday)),
@@ -44,7 +42,6 @@ const fetchTodayStats = async () => {
   const appointmentSnapshot = await getDocs(appointmentsQuery);
   const todayAppointments = appointmentSnapshot.size;
 
-  // Faturamento de hoje
   let todayRevenue = 0;
   appointmentSnapshot.docs.forEach(doc => {
     const data = doc.data();
@@ -53,15 +50,13 @@ const fetchTodayStats = async () => {
     }
   });
 
-  // Novos clientes na última semana
   const oneWeekAgo = new Date(today);
   oneWeekAgo.setDate(today.getDate() - 7);
   const newClientsQuery = query(collection(db, "clients"), where("createdAt", ">=", Timestamp.fromDate(oneWeekAgo)));
   const newClientsSnapshot = await getDocs(newClientsQuery);
   const newClients = newClientsSnapshot.size;
   
-  // Taxa de ocupação (simplificada)
-  const totalSlots = 10; // Exemplo: 10 horários por dia
+  const totalSlots = 10;
   const occupancyRate = totalSlots > 0 ? Math.round((todayAppointments / totalSlots) * 100) : 0;
 
   return { todayAppointments, todayRevenue, newClients, occupancyRate: Math.min(occupancyRate, 100) };
@@ -87,8 +82,8 @@ const fetchAppointments = async (): Promise<AppointmentWithDetails[]> => {
     const clientsSnapshot = await getDocs(collection(db, "clients"));
     const servicesSnapshot = await getDocs(collection(db, "services"));
 
-    const clientsMap = new Map(clientsSnapshot.docs.map(doc => [doc.id, doc.data() as Client]));
-    const servicesMap = new Map(servicesSnapshot.docs.map(doc => [doc.id, doc.data() as Service]));
+    const clientsMap = new Map(clientsSnapshot.docs.map(doc => [doc.id, {id: doc.id, ...doc.data()} as Client]));
+    const servicesMap = new Map(servicesSnapshot.docs.map(doc => [doc.id, {id: doc.id, ...doc.data()} as Service]));
 
     return appointmentSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -102,6 +97,16 @@ const fetchAppointments = async (): Promise<AppointmentWithDetails[]> => {
             service: servicesMap.get(data.serviceId)!,
         } as AppointmentWithDetails;
     });
+};
+
+const fetchClients = async (): Promise<Client[]> => {
+    const snapshot = await getDocs(collection(db, "clients"));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Client));
+};
+
+const fetchServices = async (): Promise<Service[]> => {
+    const snapshot = await getDocs(collection(db, "services"));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
 };
 
 
@@ -125,8 +130,8 @@ export default function DashboardSection() {
     queryFn: fetchAppointments,
   });
   
-  const { data: clients = [] } = useQuery<Client[]>({ queryKey: ['clients'] });
-  const { data: services = [] } = useQuery<Service[]>({ queryKey: ['services'] });
+  const { data: clients = [] } = useQuery<Client[]>({ queryKey: ['clients'], queryFn: fetchClients });
+  const { data: services = [] } = useQuery<Service[]>({ queryKey: ['services'], queryFn: fetchServices });
 
   const { data: recentActivities = [] } = useQuery({
     queryKey: ["recentActivities"],
@@ -170,15 +175,6 @@ export default function DashboardSection() {
       phone: z.string().min(1, "Telefone é obrigatório"),
     })),
     defaultValues: { name: "", cpf: "", email: "", phone: "" }
-  });
-
-  const galleryForm = useForm({
-    resolver: zodResolver(z.object({
-      title: z.string().min(1, "Título é obrigatório"),
-      category: z.string().min(1, "Categoria é obrigatória"),
-      description: z.string().optional()
-    })),
-    defaultValues: { title: "", category: "", description: "" }
   });
 
   // Mutations
@@ -269,9 +265,9 @@ export default function DashboardSection() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="space-y-8">
       {/* Cards de estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard title="Agendamentos Hoje" value={stats?.todayAppointments?.toString() || "0"} icon={Calendar} loading={statsLoading} />
         <StatsCard title="Faturamento Hoje" value={`R$ ${stats?.todayRevenue?.toFixed(2).replace('.', ',') || "0,00"}`} icon={DollarSign} variant="success" loading={statsLoading} />
         <StatsCard title="Novos Clientes" value={stats?.newClients?.toString() || "0"} icon={UserPlus} variant="info" loading={statsLoading} />
@@ -282,16 +278,14 @@ export default function DashboardSection() {
         {/* Agenda de Hoje */}
         <div className="lg:col-span-2">
           <Card>
-            <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold">Agenda de Hoje</h3>
-            </div>
             <CardContent className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Agenda de Hoje</h3>
               {appointmentsLoading ? <p>Carregando...</p> : todayAppointments.length > 0 ? (
                 <div className="space-y-4">
                   {todayAppointments.map((appointment) => (
-                    <div key={appointment.id} className="flex items-center space-x-4 p-4 rounded-lg bg-[#ffe3ee]">
+                    <div key={appointment.id} className="flex items-center space-x-4 p-4 rounded-lg bg-gray-50">
                       <div className="text-center">
-                        <p className="font-medium text-gray-600 text-[18px]">
+                        <p className="font-medium text-gray-800 text-lg">
                           {format(appointment.date, "HH:mm")}
                         </p>
                       </div>
@@ -300,15 +294,15 @@ export default function DashboardSection() {
                         <p className="text-sm text-gray-600">{appointment.service?.name}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-primary text-[18px] font-bold">
+                        <p className="text-primary font-bold text-lg">
                           R$ {Number(appointment.price).toFixed(2).replace('.', ',')}
                         </p>
-                        <div className="flex items-center justify-end space-x-2 mt-2">
-                          <Button size="sm" variant="outline" onClick={() => handleViewDetails(appointment)}>
-                            <Edit className="w-3 h-3 mr-1" /> Detalhes
+                        <div className="flex items-center justify-end space-x-2 mt-1">
+                          <Button size="sm" variant="ghost" onClick={() => handleViewDetails(appointment)}>
+                            <Edit className="w-4 h-4" />
                           </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleCompleteAppointment(appointment)} disabled={appointment.status === 'completed'}>
-                            <Check className="w-3 h-3 mr-1" /> {appointment.status === 'completed' ? 'Concluído' : 'Confirmar'}
+                          <Button size="sm" variant="ghost" onClick={() => handleCompleteAppointment(appointment)} disabled={appointment.status === 'completed'}>
+                            <Check className="w-4 h-4 text-green-500" />
                           </Button>
                         </div>
                       </div>

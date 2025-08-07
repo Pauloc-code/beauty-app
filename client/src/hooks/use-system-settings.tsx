@@ -1,23 +1,30 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import type { SystemSettings } from "@shared/schema";
-import { applyColorSettings } from "@/lib/color-utils";
+
+const fetchSystemSettings = async (): Promise<SystemSettings | null> => {
+    const settingsDocRef = doc(db, "systemSettings", "default");
+    const docSnap = await getDoc(settingsDocRef);
+
+    if (docSnap.exists()) {
+        const data = docSnap.data();
+        return {
+            id: docSnap.id,
+            ...data,
+            createdAt: data.createdAt.toDate(),
+            updatedAt: data.updatedAt.toDate(),
+        } as SystemSettings;
+    }
+    return null;
+};
+
 
 export function useSystemSettings() {
-  const { data: settings, isLoading } = useQuery<SystemSettings[]>({
-    queryKey: ["/api/settings"],
+  const { data: settings, isLoading } = useQuery({
+    queryKey: ["systemSettings"],
+    queryFn: fetchSystemSettings
   });
 
-  useEffect(() => {
-    applyColorSettings(settings);
-  }, [settings]);
-
-  return {
-    settings,
-    isLoading,
-    getSettingValue: (key: string, defaultValue?: string) => {
-      const setting = settings?.find(s => s.key === key);
-      return setting?.value || defaultValue;
-    }
-  };
+  return { settings, isLoading };
 }

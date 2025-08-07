@@ -7,44 +7,58 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import { Settings, Clock, Calendar, Globe } from "lucide-react";
+import { db } from "@/lib/firebase";
+import { collection, doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import type { SystemSettings } from "@shared/schema";
 
-// Lista de fusos horários do Brasil
+// --- Constantes ---
 const BRAZIL_TIMEZONES = [
   { value: "America/Sao_Paulo", label: "São Paulo (UTC-3)" },
   { value: "America/Manaus", label: "Manaus (UTC-4)" },
-  { value: "America/Rio_Branco", label: "Rio Branco (UTC-5)" },
-  { value: "America/Noronha", label: "Fernando de Noronha (UTC-2)" },
 ];
-
-// Regiões de feriados
 const HOLIDAY_REGIONS = [
   { value: "sao_paulo", label: "São Paulo" },
   { value: "rio_de_janeiro", label: "Rio de Janeiro" },
-  { value: "belo_horizonte", label: "Belo Horizonte" },
-  { value: "brasilia", label: "Brasília" },
-  { value: "salvador", label: "Salvador" },
-  { value: "recife", label: "Recife" },
-  { value: "fortaleza", label: "Fortaleza" },
-  { value: "porto_alegre", label: "Porto Alegre" },
-  { value: "curitiba", label: "Curitiba" },
-  { value: "manaus", label: "Manaus" },
 ];
 
-interface SystemSettings {
-  id: string;
-  timezone: string;
-  showHolidays: boolean;
-  holidayRegion: string;
-  workingDays: number[];
-  workingHours: {
-    start: string;
-    end: string;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
+// --- Funções do Firebase ---
+const fetchSystemSettings = async (): Promise<SystemSettings> => {
+    const settingsDocRef = doc(db, "systemSettings", "default");
+    const docSnap = await getDoc(settingsDocRef);
+
+    if (docSnap.exists()) {
+        const data = docSnap.data();
+        return {
+            id: docSnap.id,
+            ...data,
+            createdAt: data.createdAt.toDate(),
+            updatedAt: data.updatedAt.toDate(),
+        } as SystemSettings;
+    } else {
+        // Cria configurações padrão se não existirem
+        const defaultSettings: Omit<SystemSettings, 'id'> = {
+            timezone: "America/Sao_Paulo",
+            showHolidays: true,
+            holidayRegion: "sao_paulo",
+            workingDays: [1, 2, 3, 4, 5, 6],
+            workingHours: { start: "08:00", end: "18:00" },
+            createdAt: new Date(),
+            updatedAt: new Date(),
+        };
+        await setDoc(settingsDocRef, {
+            ...defaultSettings,
+            createdAt: Timestamp.fromDate(defaultSettings.createdAt),
+            updatedAt: Timestamp.fromDate(defaultSettings.updatedAt),
+        });
+        return { id: "default", ...defaultSettings };
+    }
+};
+
+const updateSystemSettings = async (settings: Partial<SystemSettings>) => {
+    const settingsDocRef = doc(db, "systemSettings", "default");
+    await setDoc(settingsDocRef, { ...settings, updatedAt: Timestamp.now() }, { merge: true });
+};
 
 export default function SettingsSection() {
   const { toast } = useToast();
@@ -52,11 +66,11 @@ export default function SettingsSection() {
   
   const [localSettings, setLocalSettings] = useState<Partial<SystemSettings>>({});
 
-  const { data: settings, isLoading } = useQuery<SystemSettings>({
-    queryKey: ["/api/system-settings"],
+  const { data: settings, isLoading } = useQuery({
+    queryKey: ["systemSettings"],
+    queryFn: fetchSystemSettings,
   });
 
-  // Update local settings when data changes
   useEffect(() => {
     if (settings) {
       setLocalSettings(settings);
@@ -64,205 +78,77 @@ export default function SettingsSection() {
   }, [settings]);
 
   const updateSettingsMutation = useMutation({
-    mutationFn: async (updatedSettings: Partial<SystemSettings>) => {
-      console.log('🔄 Salvando configurações:', updatedSettings);
-      
-      try {
-        const response = await apiRequest("PUT", "/api/system-settings", updatedSettings);
-        const result = await response.json();
-        console.log('✅ Resultado:', result);
-        return result;
-      } catch (error) {
-        console.error('❌ Erro na API:', error);
-        throw error;
-      }
+    mutationFn: updateSystemSettings,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["systemSettings"] });
+      toast({ title: "Configurações salvas com sucesso!" });
     },
-    onSuccess: (data) => {
-      console.log('🎉 Sucesso! Invalidando cache...');
-      queryClient.invalidateQueries({ queryKey: ["/api/system-settings"] });
-      setLocalSettings({}); // Clear local changes
-      toast({
-        title: "Configurações salvas",
-        description: "As configurações do sistema foram atualizadas com sucesso!",
-      });
-    },
-    onError: (error) => {
-      console.error('💥 Erro completo:', error);
-      toast({
-        title: "Erro",
-        description: `Falha ao salvar: ${error.message || 'Erro desconhecido'}`,
-        variant: "destructive",
-      });
+    onError: (error: Error) => {
+      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
     },
   });
 
   const handleSave = () => {
-    console.log('🚀 Clique no botão Salvar - configurações locais:', localSettings);
-    if (Object.keys(localSettings).length === 0) {
-      console.warn('⚠️ Nenhuma alteração para salvar');
-      toast({
-        title: "Nenhuma alteração",
-        description: "Não há configurações para salvar.",
-        variant: "default",
-      });
-      return;
-    }
     updateSettingsMutation.mutate(localSettings);
   };
 
   const handleLocalUpdate = (key: keyof SystemSettings, value: any) => {
-    console.log(`🔧 Alterando ${key}:`, value);
-    setLocalSettings(prev => {
-      const newSettings = {
-        ...prev,
-        [key]: value
-      };
-      console.log('📝 Configurações locais atualizadas:', newSettings);
-      return newSettings;
-    });
+    setLocalSettings(prev => ({ ...prev, [key]: value }));
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-2">
-          <Settings className="h-6 w-6 text-pink-600" />
-          <h2 className="text-2xl font-bold text-gray-900">Configurações do Sistema</h2>
-        </div>
-        <div className="animate-pulse">
-          <div className="grid gap-6">
-            <div className="h-48 bg-gray-200 rounded-lg"></div>
-            <div className="h-48 bg-gray-200 rounded-lg"></div>
-          </div>
-        </div>
-      </div>
-    );
+  if (isLoading || !localSettings.timezone) {
+    return <div>Carregando configurações...</div>;
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <Settings className="h-6 w-6 text-pink-600" />
-        <h2 className="text-2xl font-bold text-gray-900">Configurações do Sistema</h2>
-      </div>
-
-      {/* Layout Compacto */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5 text-pink-600" />
-            Configurações Gerais
-          </CardTitle>
+          <CardTitle className="flex items-center gap-2"><Settings className="h-5 w-5 text-primary" />Configurações Gerais</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Coluna 1: Timezone e Feriados */}
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-pink-600" />
-                  Fuso Horário
-                </Label>
-                <Select
-                  value={localSettings.timezone || settings?.timezone}
-                  onValueChange={(value) => handleLocalUpdate("timezone", value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecionar fuso horário" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BRAZIL_TIMEZONES.map((timezone) => (
-                      <SelectItem key={timezone.value} value={timezone.value}>
-                        {timezone.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
+                <Label className="flex items-center gap-2"><Globe className="h-4 w-4 text-primary" />Fuso Horário</Label>
+                <Select value={localSettings.timezone} onValueChange={(value) => handleLocalUpdate("timezone", value)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{BRAZIL_TIMEZONES.map(tz => <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-
               <div className="space-y-3">
-                <Label className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-pink-600" />
-                  Feriados
-                </Label>
+                <Label className="flex items-center gap-2"><Calendar className="h-4 w-4 text-primary" />Feriados</Label>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm">Exibir na agenda</span>
-                  <Switch
-                    checked={localSettings.showHolidays ?? settings?.showHolidays ?? true}
-                    onCheckedChange={(checked) => handleLocalUpdate("showHolidays", checked)}
-                  />
+                  <span>Exibir na agenda</span>
+                  <Switch checked={localSettings.showHolidays} onCheckedChange={(checked) => handleLocalUpdate("showHolidays", checked)} />
                 </div>
-                
-                {(localSettings.showHolidays ?? settings?.showHolidays ?? true) && (
-                  <Select
-                    value={localSettings.holidayRegion || settings?.holidayRegion}
-                    onValueChange={(value) => handleLocalUpdate("holidayRegion", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Região" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {HOLIDAY_REGIONS.map((region) => (
-                        <SelectItem key={region.value} value={region.value}>
-                          {region.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
+                {localSettings.showHolidays && (
+                  <Select value={localSettings.holidayRegion} onValueChange={(value) => handleLocalUpdate("holidayRegion", value)}>
+                    <SelectTrigger><SelectValue placeholder="Região" /></SelectTrigger>
+                    <SelectContent>{HOLIDAY_REGIONS.map(region => <SelectItem key={region.value} value={region.value}>{region.label}</SelectItem>)}</SelectContent>
                   </Select>
                 )}
               </div>
             </div>
-
-            {/* Coluna 2: Horário de Funcionamento */}
             <div className="space-y-4">
-              <Label className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-pink-600" />
-                Horário de Funcionamento
-              </Label>
+              <Label className="flex items-center gap-2"><Clock className="h-4 w-4 text-primary" />Horário de Funcionamento</Label>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="start-time" className="text-xs text-gray-500">Abertura</Label>
-                  <Input
-                    id="start-time"
-                    type="time"
-                    value={localSettings.workingHours?.start || settings?.workingHours?.start || "08:00"}
-                    onChange={(e) => handleLocalUpdate("workingHours", {
-                      ...((localSettings.workingHours || settings?.workingHours) ?? {}),
-                      start: e.target.value
-                    })}
-                  />
+                  <Input id="start-time" type="time" value={localSettings.workingHours?.start} onChange={(e) => handleLocalUpdate("workingHours", { ...localSettings.workingHours, start: e.target.value })} />
                 </div>
                 <div>
                   <Label htmlFor="end-time" className="text-xs text-gray-500">Fechamento</Label>
-                  <Input
-                    id="end-time"
-                    type="time"
-                    value={localSettings.workingHours?.end || settings?.workingHours?.end || "18:00"}
-                    onChange={(e) => handleLocalUpdate("workingHours", {
-                      ...((localSettings.workingHours || settings?.workingHours) ?? {}),
-                      end: e.target.value
-                    })}
-                  />
+                  <Input id="end-time" type="time" value={localSettings.workingHours?.end} onChange={(e) => handleLocalUpdate("workingHours", { ...localSettings.workingHours, end: e.target.value })} />
                 </div>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
-
       <div className="flex justify-end gap-4">
-        <Button
-          variant="outline"
-          onClick={() => setLocalSettings(settings || {})}
-          disabled={updateSettingsMutation.isPending}
-        >
-          Cancelar
-        </Button>
-        <Button
-          onClick={handleSave}
-          disabled={updateSettingsMutation.isPending}
-          className="bg-pink-600 hover:bg-pink-700"
-        >
+        <Button variant="outline" onClick={() => setLocalSettings(settings || {})} disabled={updateSettingsMutation.isPending}>Cancelar</Button>
+        <Button onClick={handleSave} disabled={updateSettingsMutation.isPending} className="bg-primary hover:bg-primary/90">
           {updateSettingsMutation.isPending ? "Salvando..." : "Salvar Configurações"}
         </Button>
       </div>
