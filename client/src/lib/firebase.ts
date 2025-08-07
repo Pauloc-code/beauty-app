@@ -1,67 +1,35 @@
-import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { initializeApp, getApp, getApps, FirebaseApp } from "firebase/app";
+import { getFirestore, Firestore } from "firebase/firestore";
+import { getStorage, FirebaseStorage } from "firebase/storage";
+import { getAuth, Auth } from "firebase/auth";
 
-// Função para validar se todas as variáveis de ambiente estão configuradas
-const validateFirebaseConfig = () => {
-  const requiredVars = [
-    'VITE_FIREBASE_API_KEY',
-    'VITE_FIREBASE_AUTH_DOMAIN', 
-    'VITE_FIREBASE_PROJECT_ID',
-    'VITE_FIREBASE_STORAGE_BUCKET',
-    'VITE_FIREBASE_MESSAGING_SENDER_ID',
-    'VITE_FIREBASE_APP_ID'
-  ];
-
-  const missing = requiredVars.filter(varName => !import.meta.env[varName]);
-  
-  if (missing.length > 0) {
-    console.error('❌ Firebase Configuration Error: Missing environment variables:', missing);
-    console.log('📝 Required environment variables:');
-    requiredVars.forEach(varName => {
-      const value = import.meta.env[varName];
-      console.log(`${varName}: ${value ? '✅ Set' : '❌ Missing'}`);
-    });
-    
-    // Em desenvolvimento, podemos mostrar um erro mais amigável
-    if (import.meta.env.DEV) {
-      throw new Error(`Missing Firebase environment variables: ${missing.join(', ')}`);
-    }
-  }
-};
-
-// Configuração do Firebase
+// Carrega as variáveis de ambiente do Vite.
+// Isso garante que suas chaves secretas não fiquem expostas no código.
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || ""
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-// Validar configuração antes de inicializar
-validateFirebaseConfig();
-
-let app;
-let db;
-
-try {
-  // Initialize Firebase
-  app = initializeApp(firebaseConfig);
-  
-  // Initialize Cloud Firestore and get a reference to the service
-  db = getFirestore(app);
-  
-  console.log('✅ Firebase initialized successfully');
-} catch (error) {
-  console.error('❌ Firebase initialization failed:', error);
-  
-  // Em produção, podemos querer fazer fallback ou mostrar erro amigável
-  if (import.meta.env.PROD) {
-    throw new Error('Failed to initialize Firebase. Please check your configuration.');
-  } else {
-    throw error;
-  }
+// Validação para garantir que as variáveis de ambiente foram carregadas
+if (!firebaseConfig.apiKey) {
+  throw new Error("As variáveis de ambiente do Firebase não foram configuradas corretamente.");
 }
 
-export { db };
+// Inicializa o Firebase de forma segura, evitando duplicação
+let app: FirebaseApp;
+if (!getApps().length) {
+  app = initializeApp(firebaseConfig);
+} else {
+  app = getApp();
+}
+
+// Exporta as instâncias dos serviços do Firebase com os tipos corretos
+const db: Firestore = getFirestore(app);
+const storage: FirebaseStorage = getStorage(app);
+const auth: Auth = getAuth(app);
+
+export { db, storage, auth };
