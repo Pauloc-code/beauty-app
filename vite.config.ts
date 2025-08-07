@@ -1,15 +1,14 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import path from 'path'
 
-// Configuração Mínima e Limpa para Teste
+// Configuração mínima e limpa para teste
 export default defineConfig({
   plugins: [react()],
-  // Define a raiz do projeto front-end, onde o index.html está localizado.
+  // Define a raiz do projeto front-end
   root: 'client',
   build: {
-    // Define o diretório de saída para os ficheiros de produção.
-    outDir: path.resolve(__dirname, 'dist'),
+    // Define o diretório de saída relativo à raiz
+    outDir: '../dist',
     emptyOutDir: true,
   }
 })
