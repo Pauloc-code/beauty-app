@@ -4,13 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Calendar, Clock, Star, X, CalendarDays } from "lucide-react";
 import { format, addHours, isAfter } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where, doc, updateDoc, Timestamp } from "firebase/firestore";
-import type { AppointmentWithDetails, Client, Service } from "@shared/schema";
+import type { AppointmentWithDetails, Client, Service, Appointment } from "@shared/schema";
 
 // --- Funções do Firebase ---
 const fetchClientAppointments = async (clientId: string): Promise<AppointmentWithDetails[]> => {
@@ -19,6 +21,7 @@ const fetchClientAppointments = async (clientId: string): Promise<AppointmentWit
     const appointmentsQuery = query(collection(db, "appointments"), where("clientId", "==", clientId));
     
     const appointmentSnapshot = await getDocs(appointmentsQuery);
+    // Para otimizar, poderíamos buscar apenas os clientes e serviços necessários, mas por simplicidade vamos buscar todos
     const clientsSnapshot = await getDocs(collection(db, "clients"));
     const servicesSnapshot = await getDocs(collection(db, "services"));
 
@@ -27,19 +30,28 @@ const fetchClientAppointments = async (clientId: string): Promise<AppointmentWit
 
     return appointmentSnapshot.docs.map(doc => {
         const data = doc.data();
+        const clientData = clientsMap.get(data.clientId);
+        const serviceData = servicesMap.get(data.serviceId);
+
+        // Se o cliente ou serviço não for encontrado, podemos pular ou lidar com o erro
+        if (!clientData || !serviceData) {
+            return null;
+        }
+
         return {
             id: doc.id,
             ...data,
             date: data.date.toDate(),
             createdAt: data.createdAt.toDate(),
             updatedAt: data.updatedAt.toDate(),
-            client: clientsMap.get(data.clientId)!,
-            service: servicesMap.get(data.serviceId)!,
+            client: clientData,
+            service: serviceData,
         } as AppointmentWithDetails;
-    }).sort((a, b) => b.date.getTime() - a.date.getTime()); // Ordenar por data
+    }).filter((app): app is AppointmentWithDetails => app !== null)
+      .sort((a, b) => b.date.getTime() - a.date.getTime()); // Ordenar por data
 };
 
-const updateAppointment = async (data: { id: string, payload: any }) => {
+const updateAppointment = async (data: { id: string, payload: Partial<Appointment> }) => {
     const { id, payload } = data;
     await updateDoc(doc(db, "appointments", id), { ...payload, updatedAt: Timestamp.now() });
 };
@@ -52,7 +64,8 @@ export default function AppointmentsSection() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const clientId = "mock-client-id"; // Em uma app real, viria da autenticação
+  // Em uma app real, o ID do cliente viria da autenticação
+  const clientId = "mock-client-id"; 
   
   const { data: appointments = [], isLoading } = useQuery({
     queryKey: ["clientAppointments", clientId],

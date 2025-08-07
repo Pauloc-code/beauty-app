@@ -7,12 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { ChevronLeft, ChevronRight, Filter, Plus, Edit, Trash2, Calendar, List } from "lucide-react";
-import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, startOfWeek, endOfWeek } from "date-fns";
+import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp } from "firebase/firestore";
-import type { Client, Service, AppointmentWithDetails, SystemSettings, InsertAppointment } from "@shared/schema";
+import type { Client, Service, Appointment, AppointmentWithDetails, SystemSettings, InsertAppointment } from "@shared/schema";
 
 // --- Funções do Firebase ---
 const fetchClients = async (): Promise<Client[]> => {
@@ -61,12 +61,9 @@ const fetchSystemSettings = async (): Promise<SystemSettings | null> => {
 
 export default function CalendarSection() {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<"month" | "week" | "day">("month");
   const [isNewAppointmentOpen, setIsNewAppointmentOpen] = useState(false);
   const [isEditAppointmentOpen, setIsEditAppointmentOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithDetails | null>(null);
-  const [showFutureAppointments, setShowFutureAppointments] = useState(false);
-  const [filters, setFilters] = useState({ status: "all", service: "all", client: "all" });
   const [newAppointment, setNewAppointment] = useState({
     date: format(new Date(), "yyyy-MM-dd"),
     time: "09:00",
@@ -83,13 +80,8 @@ export default function CalendarSection() {
 
   const createAppointmentMutation = useMutation({
     mutationFn: async (appointment: InsertAppointment) => {
-        const selectedService = services.find(s => s.id === appointment.serviceId);
-        if (!selectedService) throw new Error("Serviço não encontrado");
-
         await addDoc(collection(db, "appointments"), {
             ...appointment,
-            price: selectedService.price,
-            status: "scheduled",
             createdAt: Timestamp.now(),
             updatedAt: Timestamp.now(),
         });
@@ -98,19 +90,6 @@ export default function CalendarSection() {
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       setIsNewAppointmentOpen(false);
       toast({ title: "Agendamento criado com sucesso." });
-    },
-    onError: (error: Error) => toast({ title: "Erro", description: error.message, variant: "destructive" }),
-  });
-
-  const updateAppointmentMutation = useMutation({
-    mutationFn: async (data: { id: string, payload: Partial<Appointment>}) => {
-        const { id, payload } = data;
-        await updateDoc(doc(db, "appointments", id), { ...payload, updatedAt: Timestamp.now() });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      setIsEditAppointmentOpen(false);
-      toast({ title: "Agendamento atualizado com sucesso." });
     },
     onError: (error: Error) => toast({ title: "Erro", description: error.message, variant: "destructive" }),
   });
@@ -135,16 +114,7 @@ export default function CalendarSection() {
     return { isHoliday: false };
   };
 
-  const getFilteredAppointments = () => {
-    return appointments.filter(appointment => {
-      const statusMatch = filters.status === "all" || appointment.status === filters.status;
-      const serviceMatch = filters.service === "all" || appointment.serviceId === filters.service;
-      const clientMatch = filters.client === "all" || appointment.clientId === filters.client;
-      return statusMatch && serviceMatch && clientMatch;
-    });
-  };
-
-  const getAppointmentsForDay = (date: Date) => getFilteredAppointments().filter(appointment => isSameDay(appointment.date, date));
+  const getAppointmentsForDay = (date: Date) => appointments.filter(appointment => isSameDay(appointment.date, date));
 
   const navigateMonth = (direction: "prev" | "next") => {
     const newDate = new Date(currentDate);
@@ -242,10 +212,17 @@ export default function CalendarSection() {
                 <div className="flex justify-end space-x-2">
                     <Button variant="outline" onClick={() => setIsNewAppointmentOpen(false)}>Cancelar</Button>
                     <Button onClick={() => {
+                        const selectedService = services.find(s => s.id === newAppointment.serviceId);
+                        if (!selectedService) {
+                            toast({ title: "Erro", description: "Selecione um serviço válido", variant: "destructive" });
+                            return;
+                        }
                         const appointmentData: InsertAppointment = {
                             clientId: newAppointment.clientId,
                             serviceId: newAppointment.serviceId,
                             date: new Date(`${newAppointment.date}T${newAppointment.time}`),
+                            status: "scheduled",
+                            price: selectedService.price,
                         };
                         createAppointmentMutation.mutate(appointmentData);
                     }} disabled={createAppointmentMutation.isPending}>Criar</Button>
@@ -259,7 +236,9 @@ export default function CalendarSection() {
             <DialogHeader><DialogTitle>Editar Agendamento</DialogTitle></DialogHeader>
             {selectedAppointment && (
                 <div className="space-y-4 py-4">
-                    {/* Campos de edição aqui, se necessário */}
+                    <p>Cliente: {selectedAppointment.client.name}</p>
+                    <p>Serviço: {selectedAppointment.service.name}</p>
+                    <p>Data: {format(selectedAppointment.date, "dd/MM/yyyy HH:mm")}</p>
                     <div className="flex justify-between pt-4">
                         <Button variant="destructive" onClick={() => deleteAppointmentMutation.mutate(selectedAppointment.id)} disabled={deleteAppointmentMutation.isPending}>
                             <Trash2 className="w-4 h-4 mr-2" />

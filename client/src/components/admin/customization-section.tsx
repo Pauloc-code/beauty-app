@@ -41,7 +41,7 @@ const fetchTheme = async (): Promise<ColorTheme> => {
     return { id: themeSnapshot.docs[0].id, ...docData } as ColorTheme;
 };
 
-const updateTheme = async (themeData: Partial<ColorTheme>) => {
+const updateTheme = async (themeData: Partial<Omit<ColorTheme, 'id'>>) => {
     // No nosso caso, só há um documento de tema
     const themeDoc = doc(db, "theme", "default");
     await setDoc(themeDoc, themeData, { merge: true });
@@ -60,7 +60,7 @@ export default function CustomizationSection() {
     textColor: "#1f2937"
   });
 
-  const { data: currentTheme, isLoading } = useQuery<ColorTheme>({
+  const { data: currentTheme, isLoading } = useQuery({
     queryKey: ["theme"],
     queryFn: fetchTheme,
   });
@@ -95,10 +95,9 @@ export default function CustomizationSection() {
     },
   });
 
-  const handleApplyTheme = (theme: typeof DEFAULT_THEMES[0]) => {
-    const themeData = { name: theme.name, ...theme };
+  const handleApplyTheme = (theme: Omit<ColorTheme, 'id'>) => {
     setCustomColors(theme);
-    updateThemeMutation.mutate(themeData);
+    updateThemeMutation.mutate(theme);
   };
 
   const handleCustomColorChange = (colorType: keyof typeof customColors, value: string) => {
