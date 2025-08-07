@@ -150,6 +150,8 @@ export default function AppointmentsSection() {
                               <Button variant="outline" onClick={() => setRescheduleDialog(null)}>Cancelar</Button>
                               <Button onClick={() => {
                                 const newDateTime = new Date(`${newDate}T${newTime}`);
+                                // --- CORREÇÃO AQUI ---
+                                // Convertendo o Date do JS para Timestamp do Firestore antes de enviar
                                 updateAppointmentMutation.mutate({ id: appointment.id, payload: { date: Timestamp.fromDate(newDateTime) } });
                               }} disabled={!newDate || !newTime || updateAppointmentMutation.isPending}>Confirmar</Button>
                             </DialogFooter>
