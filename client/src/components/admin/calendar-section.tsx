@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Filter, Plus, Edit, Trash2, Calendar, List } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp } from "firebase/firestore";
+import { collection, getDocs, addDoc, deleteDoc, doc, Timestamp } from "firebase/firestore";
 import type { Client, Service, Appointment, AppointmentWithDetails, SystemSettings, InsertAppointment } from "@shared/schema";
 
 // --- Funções do Firebase ---
@@ -35,16 +35,19 @@ const fetchAppointments = async (): Promise<AppointmentWithDetails[]> => {
 
     return appointmentSnapshot.docs.map(doc => {
         const data = doc.data();
+        const clientData = clientsMap.get(data.clientId);
+        const serviceData = servicesMap.get(data.serviceId);
+        if (!clientData || !serviceData) return null;
         return {
             id: doc.id,
             ...data,
             date: data.date.toDate(),
             createdAt: data.createdAt.toDate(),
             updatedAt: data.updatedAt.toDate(),
-            client: clientsMap.get(data.clientId)!,
-            service: servicesMap.get(data.serviceId)!,
+            client: clientData,
+            service: serviceData,
         } as AppointmentWithDetails;
-    });
+    }).filter((app): app is AppointmentWithDetails => app !== null);
 };
 
 const fetchSystemSettings = async (): Promise<SystemSettings | null> => {
@@ -233,7 +236,7 @@ export default function CalendarSection() {
 
       <Dialog open={isEditAppointmentOpen} onOpenChange={setIsEditAppointmentOpen}>
         <DialogContent>
-            <DialogHeader><DialogTitle>Editar Agendamento</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>Detalhes do Agendamento</DialogTitle></DialogHeader>
             {selectedAppointment && (
                 <div className="space-y-4 py-4">
                     <p>Cliente: {selectedAppointment.client.name}</p>

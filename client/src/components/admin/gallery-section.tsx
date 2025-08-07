@@ -5,14 +5,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Plus, Eye, Trash2, Camera } from "lucide-react";
+import { Plus, Eye, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState } from "react";
 import { db } from "@/lib/firebase";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { collection, getDocs, addDoc, deleteDoc, doc, Timestamp, query, orderBy } from "firebase/firestore";
 import type { GalleryImage, InsertGalleryImage } from "@shared/schema";
 
@@ -40,33 +40,44 @@ const addGalleryImage = async (data: { imageFile: File, title: string, category:
     const downloadURL = await getDownloadURL(snapshot.ref);
 
     // 2. Salvar os dados da imagem no Firestore
-    const imageDoc: InsertGalleryImage = {
+    const imageDoc: Omit<InsertGalleryImage, 'createdAt'> = {
         ...imageData,
         url: downloadURL,
-        createdAt: Timestamp.now(),
     };
-    await addDoc(collection(db, "galleryImages"), imageDoc);
+    await addDoc(collection(db, "galleryImages"), {
+        ...imageDoc,
+        createdAt: Timestamp.now(),
+    });
 };
 
-const deleteGalleryImage = async (imageId: string) => {
-    // Nota: Isto apaga apenas o registo no Firestore, não o arquivo no Storage.
-    // A remoção do arquivo no Storage pode ser implementada posteriormente se necessário.
-    await deleteDoc(doc(db, "galleryImages", imageId));
+const deleteGalleryImage = async (image: GalleryImage) => {
+    // Apaga o registo no Firestore
+    await deleteDoc(doc(db, "galleryImages", image.id));
+
+    // Apaga o arquivo no Storage
+    const storage = getStorage();
+    const imageRef = ref(storage, image.url);
+    await deleteObject(imageRef).catch((error) => {
+        console.error("Erro ao apagar imagem do Storage, pode já ter sido removida:", error);
+    });
 };
+
+const galleryFormSchema = z.object({
+    title: z.string().min(1, "Título é obrigatório"),
+    category: z.string().min(1, "Categoria é obrigatória"),
+    description: z.string().optional(),
+    imageFile: z.instanceof(File, { message: "Por favor, selecione uma imagem." })
+        .refine((file) => file.size < 5 * 1024 * 1024, "A imagem deve ter no máximo 5MB."),
+});
 
 
 export default function GallerySection() {
-  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const galleryForm = useForm({
-    resolver: zodResolver(z.object({
-      title: z.string().min(1, "Título é obrigatório"),
-      category: z.string().min(1, "Categoria é obrigatória"),
-      description: z.string().optional(),
-      imageFile: z.instanceof(File, { message: "Por favor, selecione uma imagem." }),
-    })),
+  const form = useForm<z.infer<typeof galleryFormSchema>>({
+    resolver: zodResolver(galleryFormSchema),
     defaultValues: {
       title: "",
       category: "",
@@ -80,20 +91,20 @@ export default function GallerySection() {
     queryFn: fetchGalleryImages,
   });
 
-  const uploadGalleryImageMutation = useMutation({
+  const uploadMutation = useMutation({
     mutationFn: addGalleryImage,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["galleryImages"] });
       toast({ title: "Sucesso", description: "Foto enviada para a galeria." });
-      galleryForm.reset();
-      setGalleryOpen(false);
+      form.reset();
+      setIsModalOpen(false);
     },
     onError: (error: Error) => {
       toast({ title: "Erro", description: `Erro ao enviar foto: ${error.message}`, variant: "destructive" });
     }
   });
 
-  const deleteImageMutation = useMutation({
+  const deleteMutation = useMutation({
     mutationFn: deleteGalleryImage,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["galleryImages"] });
@@ -104,10 +115,8 @@ export default function GallerySection() {
     },
   });
 
-  const handleDeleteImage = (imageId: string) => {
-    if (confirm("Tem certeza que deseja remover esta imagem?")) {
-      deleteImageMutation.mutate(imageId);
-    }
+  const onSubmit = (data: z.infer<typeof galleryFormSchema>) => {
+    uploadMutation.mutate(data);
   };
 
   return (
@@ -116,29 +125,10 @@ export default function GallerySection() {
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900">Gestão da Galeria</h2>
-            <Dialog open={galleryOpen} onOpenChange={setGalleryOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-primary text-white hover:bg-primary/90">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Upload Fotos
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader><DialogTitle>Adicionar Foto à Galeria</DialogTitle></DialogHeader>
-                <Form {...galleryForm}>
-                  <form onSubmit={galleryForm.handleSubmit(data => uploadGalleryImageMutation.mutate(data))} className="space-y-4">
-                    <FormField control={galleryForm.control} name="title" render={({ field }) => (<FormItem><FormLabel>Título</FormLabel><FormControl><Input placeholder="Ex: Nail art floral" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={galleryForm.control} name="category" render={({ field }) => (<FormItem><FormLabel>Categoria</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione a categoria" /></SelectTrigger></FormControl><SelectContent><SelectItem value="nail-art">Nail Art</SelectItem><SelectItem value="manicure">Manicure</SelectItem><SelectItem value="pedicure">Pedicure</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
-                    <FormField control={galleryForm.control} name="description" render={({ field }) => (<FormItem><FormLabel>Descrição</FormLabel><FormControl><Input placeholder="Opcional" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={galleryForm.control} name="imageFile" render={({ field: { onChange, value, ...rest }}) => (<FormItem><FormLabel>Imagem</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => onChange(e.target.files?.[0])} {...rest} /></FormControl><FormMessage /></FormItem>)} />
-                    <div className="flex gap-3 pt-4">
-                      <Button type="button" variant="outline" onClick={() => setGalleryOpen(false)}>Cancelar</Button>
-                      <Button type="submit" disabled={uploadGalleryImageMutation.isPending}>{uploadGalleryImageMutation.isPending ? "Enviando..." : "Enviar"}</Button>
-                    </div>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
+            <Button onClick={() => setIsModalOpen(true)} className="bg-primary text-white hover:bg-primary/90">
+              <Plus className="w-4 h-4 mr-2" />
+              Upload Fotos
+            </Button>
           </div>
         </div>
         
@@ -150,8 +140,8 @@ export default function GallerySection() {
                   <img src={image.url} alt={image.title || "Imagem da galeria"} className="w-full h-40 object-cover rounded-lg" />
                   <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-200 rounded-lg flex items-center justify-center">
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex space-x-2">
-                      <Button variant="outline" size="sm" className="p-2 bg-white text-gray-700 rounded-full hover:bg-gray-100"><Eye className="w-4 h-4" /></Button>
-                      <Button variant="outline" size="sm" className="p-2 bg-white text-red-600 rounded-full hover:bg-red-50" onClick={() => handleDeleteImage(image.id)} disabled={deleteImageMutation.isPending}><Trash2 className="w-4 h-4" /></Button>
+                      <Button variant="outline" size="icon" className="bg-white/80"><Eye className="w-4 h-4" /></Button>
+                      <Button variant="destructive" size="icon" onClick={() => deleteMutation.mutate(image)} disabled={deleteMutation.isPending}><Trash2 className="w-4 h-4" /></Button>
                     </div>
                   </div>
                 </div>
@@ -160,6 +150,24 @@ export default function GallerySection() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Adicionar Foto à Galeria</DialogTitle></DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel>Título</FormLabel><FormControl><Input placeholder="Ex: Nail art floral" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="category" render={({ field }) => (<FormItem><FormLabel>Categoria</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Selecione a categoria" /></SelectTrigger></FormControl><SelectContent><SelectItem value="nail-art">Nail Art</SelectItem><SelectItem value="manicure">Manicure</SelectItem><SelectItem value="pedicure">Pedicure</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Descrição</FormLabel><FormControl><Input placeholder="Opcional" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="imageFile" render={({ field }) => (<FormItem><FormLabel>Imagem</FormLabel><FormControl><Input type="file" accept="image/*" onChange={(e) => field.onChange(e.target.files?.[0])} /></FormControl><FormMessage /></FormItem>)} />
+              <div className="flex gap-3 pt-4">
+                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
+                <Button type="submit" disabled={uploadMutation.isPending}>{uploadMutation.isPending ? "Enviando..." : "Enviar"}</Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

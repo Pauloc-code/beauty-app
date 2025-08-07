@@ -32,7 +32,6 @@ const fetchTheme = async (): Promise<ColorTheme> => {
     const themeCollection = collection(db, "theme");
     const themeSnapshot = await getDocs(themeCollection);
     if (themeSnapshot.empty) {
-        // Se não houver tema, cria um padrão
         const defaultTheme = { id: "default", ...DEFAULT_THEMES[0] };
         await setDoc(doc(db, "theme", "default"), defaultTheme);
         return defaultTheme;
@@ -42,7 +41,6 @@ const fetchTheme = async (): Promise<ColorTheme> => {
 };
 
 const updateTheme = async (themeData: Partial<Omit<ColorTheme, 'id'>>) => {
-    // No nosso caso, só há um documento de tema
     const themeDoc = doc(db, "theme", "default");
     await setDoc(themeDoc, themeData, { merge: true });
 };

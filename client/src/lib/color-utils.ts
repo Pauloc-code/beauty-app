@@ -4,9 +4,12 @@ import type { SystemSettings } from "@shared/schema";
 // e os estilos são aplicados via variáveis CSS no index.css.
 // Manter o arquivo para evitar erros de importação em outros locais, mas com a lógica desativada.
 
-export function applyColorSettings(settings: SystemSettings | undefined) {
+export function applyColorSettings(settings: SystemSettings[] | undefined) {
   // Lógica desativada para simplificar a migração.
   // O tema será gerenciado diretamente pelos componentes que o consomem.
+  if (!settings) return;
+  
+  // A lógica de aplicação de cores pode ser reativada aqui se necessário no futuro.
   return;
 }
 
@@ -22,7 +25,7 @@ export function hexToHsl(hex: string) {
 
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
-  let h = 0, s, l = (max + min) / 2;
+  let h = 0, s = 0, l = (max + min) / 2;
 
   if (max !== min) {
     const d = max - min;
